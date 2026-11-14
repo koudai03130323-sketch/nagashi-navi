@@ -1,0 +1,17 @@
+{
+  "name": "流しナビ",
+  "short_name": "流しナビ",
+  "description": "タクシーの乗務記録から、いま・どこへ行けば客がつきやすいかを出すアプリ。記録は端末の中だけに保存します。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1318",
+  "theme_color": "#0f1318",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

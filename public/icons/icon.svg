@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0f1318"/>
+  <path d="M132 190 a34 34 0 0 1 34 -34 h180 a34 34 0 0 1 34 34 v112 a18 18 0 0 1 -18 18 h-212 a18 18 0 0 1 -18 -18 z" fill="#f3b43c"/>
+  <text x="256" y="272" text-anchor="middle" font-family="Hiragino Sans, Hiragino Kaku Gothic ProN, sans-serif" font-weight="700" font-size="96" fill="#1a1405">空車</text>
+  <rect x="176" y="344" width="160" height="14" rx="7" fill="#f3b43c" opacity=".55"/>
+</svg>

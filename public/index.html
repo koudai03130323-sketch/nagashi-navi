@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>流しナビ</title>
+<meta name="description" content="タクシーの乗務記録から、いま・どこへ行けば客がつきやすいかを出すアプリ。記録は端末の中だけに保存します。">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1318" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="流しナビ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Inter:wght@500;700&display=swap">
+<style>
+:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+/* 片手で使う縦長アプリ。上にヘッダー、下にタブ。記録は使う人の端末の中だけに置く */
+:root {
+  --bg: #f4f2ee; --surface: #ffffff; --surface-2: #ece9e3; --line: #dcd7ce;
+  --fg: #1b1d21; --muted: #676b73; --accent: #c98a12; --accent-ink: #1b1d21; --accent-soft: #f6e7c4;
+  --good: #1f8a6a; --good-soft: #d6efe6; --warn-soft: #f8e1d6;
+  --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --num: "Inter", "BIZ UDPGothic", system-ui, sans-serif;
+  --r: 16px; --mapfilter: none;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1318; --surface: #181e26; --surface-2: #212934; --line: #2c3541;
+  --fg: #eef1f5; --muted: #98a2b0; --accent: #f3b43c; --accent-ink: #1a1405; --accent-soft: #3a2e14;
+  --good: #4cc79e; --good-soft: #163a30; --warn-soft: #3a2018; color-scheme: dark;
+  --mapfilter: invert(.92) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.6); } }
+:root[data-theme="dark"] {
+  --bg: #0f1318; --surface: #181e26; --surface-2: #212934; --line: #2c3541;
+  --fg: #eef1f5; --muted: #98a2b0; --accent: #f3b43c; --accent-ink: #1a1405; --accent-soft: #3a2e14;
+  --good: #4cc79e; --good-soft: #163a30; --warn-soft: #3a2018; color-scheme: dark;
+  --mapfilter: invert(.92) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.6); }
+
+html, body { background: var(--bg); }
+body { color: var(--fg); font-family: var(--font); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+body.mapmode { overflow: hidden; }
+.app { max-width: 520px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 calc(88px + env(safe-area-inset-bottom, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 8; background: var(--bg); padding: 14px 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.lamp { width: 30px; height: 20px; border-radius: 6px 6px 3px 3px; background: var(--accent); display: grid; place-items: center; color: var(--accent-ink); font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+.brand h1 { font-size: 19px; margin: 0; font-weight: 700; letter-spacing: .02em; }
+.clock { font-family: var(--num); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+.clock small { font-family: var(--font); color: var(--muted); font-weight: 400; margin-right: 6px; font-size: 12px; }
+
+.screen { display: grid; gap: 14px; padding-top: 4px; }
+.screen[hidden] { display: none !important; }
+h2 { font-size: 17px; margin: 0; font-weight: 700; }
+.sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 0; }
+.sec { display: grid; gap: 10px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
+.chips.wrap { flex-wrap: wrap; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { font: inherit; font-size: 14px; flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 9px 14px; cursor: pointer; min-height: 40px; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700; }
+button:focus-visible, a:focus-visible, .card:focus-visible, .mcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wd7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.wd7 .chip { padding: 9px 0; text-align: center; }
+.stepper { display: grid; grid-template-columns: 52px 1fr 52px; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px; }
+.stepbtn { font: inherit; font-size: 22px; height: 48px; border-radius: 12px; border: 0; background: var(--surface-2); color: var(--fg); cursor: pointer; }
+.stepval { text-align: center; display: grid; gap: 2px; }
+.stepval b { font-family: var(--num); font-size: 24px; font-variant-numeric: tabular-nums; }
+.stepval span { font-size: 12px; color: var(--muted); }
+.row2 { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.ghost { font: inherit; font-size: 13px; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.primary { font: inherit; font-size: 15px; font-weight: 700; border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 14px 18px; cursor: pointer; text-align: center; }
+.danger { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--warn-soft); color: var(--fg); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 10px; display: grid; gap: 4px; min-width: 0; }
+.stat .l { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+.stat .v { font-family: var(--num); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 26px; line-height: 1; }
+.stat .v small { font-family: var(--font); font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.stat .n { font-size: 11px; color: var(--muted); }
+.hero { background: var(--accent); color: var(--accent-ink); border-radius: 20px; padding: 16px; display: grid; gap: 10px; }
+.hero .k { font-size: 12.5px; font-weight: 700; opacity: .8; }
+.hero .big { font-size: 26px; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+.hero .why { font-size: 13px; line-height: 1.5; }
+.hero .alts { display: flex; flex-wrap: wrap; gap: 6px; }
+.hero .alts span { background: color-mix(in srgb, var(--accent-ink) 12%, transparent); border-radius: 999px; padding: 5px 10px; font-size: 12.5px; font-weight: 700; }
+.list { display: grid; gap: 8px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 8px; cursor: pointer; text-align: left; color: inherit; }
+.card .hd { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.rank { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-family: var(--num); font-weight: 700; font-size: 13px; }
+.list > :nth-child(-n+3) .rank { background: var(--accent); color: var(--accent-ink); }
+.nm { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd { font-size: 12px; color: var(--muted); }
+.cnt { font-family: var(--num); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; text-align: right; }
+.cnt small { font-family: var(--font); font-size: 11px; color: var(--muted); font-weight: 400; display: block; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 38px; }
+.tag { font-size: 12px; border-radius: 999px; padding: 4px 9px; background: var(--surface-2); color: var(--fg); font-variant-numeric: tabular-nums; }
+.tag.good { background: var(--good-soft); }
+.tag.hot { background: var(--accent-soft); }
+.bar { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-left: 38px; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.spark { padding-left: 38px; display: grid; gap: 4px; }
+.spark svg { width: 100%; height: 56px; display: block; }
+.spark .cap { font-size: 11px; color: var(--muted); }
+.gm { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 38px; }
+.gmbtn { font-size: 12.5px; font-weight: 700; text-decoration: none; color: var(--fg); border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 7px 12px; white-space: nowrap; }
+.gmbtn.nav { background: var(--good-soft); border-color: transparent; }
+.empty { color: var(--muted); font-size: 13px; padding: 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); text-align: center; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.info { font-size: 13px; min-height: 1.4em; }
+
+/* 地図 */
+.mapbox { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface-2); touch-action: none; height: 300px; }
+.mapbox svg { display: block; width: 100%; height: 100%; }
+.basemap { filter: var(--mapfilter); }
+.heatdot { fill: var(--accent); fill-opacity: .5; stroke: var(--accent); stroke-width: 1; }
+.flow { stroke: var(--accent); stroke-opacity: .85; stroke-linecap: round; stroke-dasharray: 2 6; fill: none; }
+.pin circle { fill: var(--fg); stroke: var(--bg); stroke-width: 2.5; }
+.pin text { fill: var(--bg); font-family: var(--num); font-weight: 700; font-size: 13px; }
+.origin circle { fill: var(--good); stroke: var(--bg); stroke-width: 3; }
+.pinlab, .olab { font-family: var(--font); font-weight: 700; fill: var(--fg); paint-order: stroke; stroke: var(--bg); stroke-width: 3.5px; stroke-linejoin: round; font-size: 12px; }
+.maphint { position: absolute; left: 8px; bottom: 8px; font-size: 10.5px; background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--muted); padding: 3px 8px; border-radius: 999px; pointer-events: none; }
+.mapfull { position: absolute; right: 8px; top: 8px; font: inherit; font-size: 12px; font-weight: 700; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--fg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+#s-map:not([hidden]) { position: fixed; left: 0; right: 0; top: var(--hdr, 60px); bottom: var(--tabh, 70px); padding: 0; display: block; z-index: 5; }
+#s-map .mapbox { position: absolute; inset: 0; border-radius: 0; height: auto; }
+.mapover { position: absolute; top: 8px; left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); display: grid; gap: 6px; justify-items: start; pointer-events: none; }
+.mapover > * { pointer-events: auto; }
+.mapover .chip { box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.mappill { background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2); max-width: 100%; }
+.mapsheet { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 8px; overflow-x: auto; padding: 0 12px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.mapsheet::-webkit-scrollbar { display: none; }
+.mcard { color: var(--fg); text-align: left; flex: 0 0 auto; width: 236px; scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; display: grid; gap: 2px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.28); }
+.mcard[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 4px 14px rgba(0,0,0,.28); }
+.mtop { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.mtop .rank { flex: 0 0 auto; width: 24px; height: 24px; font-size: 12px; background: var(--accent); color: var(--accent-ink); }
+.mname { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mmain { font-family: var(--num); font-weight: 700; font-size: 18px; }
+.mdesc { font-size: 12px; color: var(--muted); }
+.mcard .gm { padding-left: 0; margin-top: 4px; flex-wrap: nowrap; }
+.mcard .gmbtn { padding: 6px 9px; font-size: 11.5px; }
+.credit { position: absolute; right: 8px; bottom: 6px; font-size: 10px; color: var(--muted); background: color-mix(in srgb, var(--bg) 75%, transparent); padding: 2px 6px; border-radius: 6px; pointer-events: none; }
+#s-map .credit { bottom: auto; top: 8px; }
+
+.heat svg, .months svg { width: 100%; height: auto; display: block; }
+.heat text, .months text { font-family: var(--font); font-size: 10.5px; fill: var(--muted); }
+.ltable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ltable td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ltable td.r { text-align: right; font-family: var(--num); font-weight: 700; white-space: nowrap; }
+.ltable .d { color: var(--muted); font-size: 11.5px; }
+
+/* はじめの画面 */
+.welcome { display: grid; gap: 14px; padding-top: 6px; }
+.welcome .big { font-size: 24px; font-weight: 700; line-height: 1.35; text-wrap: balance; margin: 0; }
+.drop { border: 2px dashed var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 10px; text-align: center; background: var(--surface); }
+.drop.over { border-color: var(--accent); }
+.drop input { display: none; }
+pre.csv { margin: 0; background: var(--surface-2); border-radius: 12px; padding: 10px; font-size: 12px; overflow-x: auto; font-family: ui-monospace, Menlo, monospace; line-height: 1.6; }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.6; }
+.note { font-size: 12.5px; color: var(--fg); background: var(--good-soft); border-radius: 12px; padding: 10px 12px; line-height: 1.6; }
+.err { font-size: 13px; background: var(--warn-soft); border-radius: 12px; padding: 10px 12px; line-height: 1.6; }
+
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-right, 0px)); }
+.tabs[hidden] { display: none; }
+.tabs nav { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tab { font: inherit; border: 0; background: transparent; color: var(--muted); display: grid; justify-items: center; gap: 3px; padding: 6px 0; border-radius: 12px; cursor: pointer; font-size: 11.5px; }
+.tab svg { width: 24px; height: 24px; }
+.tab[aria-selected="true"] { color: var(--fg); font-weight: 700; }
+.tab[aria-selected="true"] svg { color: var(--accent); }
+.foot { color: var(--muted); font-size: 11.5px; line-height: 1.6; margin: 6px 0 0; }
+.samplebar { background: var(--warn-soft); border-radius: 12px; padding: 8px 12px; font-size: 12.5px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+
+/* AIで読み取る */
+a.ghost { text-decoration: none; display: inline-block; }
+.ghost.wide { padding: 13px 14px; font-size: 14px; border-radius: 14px; text-align: center; }
+.primary:disabled { opacity: .45; cursor: default; }
+.stepno { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--fg); color: var(--bg); font-family: var(--num); font-size: 13px; margin-right: 8px; vertical-align: 1px; }
+.fold summary { cursor: pointer; font-size: 13.5px; font-weight: 700; padding: 4px 0; }
+.fold[open] > summary { margin-bottom: 8px; }
+.fold > * + * { margin-top: 10px; }
+pre.csv.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ta, .afield input { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-sizing: border-box; width: 100%; min-width: 0; }
+.ta { padding: 10px; min-height: 140px; resize: vertical; line-height: 1.5; display: block; }
+.ta:focus-visible, .afield input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.alist { display: grid; gap: 10px; }
+.acard { border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; background: var(--surface); }
+.acard.bad { border-color: var(--accent); border-width: 2px; }
+.ahead { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.ahead .ghost { padding: 5px 12px; font-size: 12px; }
+.agrid4 { display: grid; grid-template-columns: minmax(0, 1.9fr) repeat(3, minmax(0, 1fr)); gap: 6px; }
+.agrid4 input { padding: 8px 4px; font-family: var(--num); }
+.agrid4 input.bad { padding: 7px 3px; }
+@media (max-width: 359px) { .agrid4 { grid-template-columns: 1fr 1fr; } }
+.agrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.afield { display: grid; gap: 3px; min-width: 0; font-size: 11px; color: var(--muted); }
+.afield input { padding: 8px 6px; }
+.afield input.warn { background: var(--accent-soft); border-color: var(--accent); }
+.afield input.bad { background: var(--warn-soft); border-color: var(--accent); border-width: 2px; padding: 7px 5px; }
+.ahint { margin: 0; font-size: 12px; line-height: 1.55; }
+.ahint .m { color: var(--muted); display: block; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; }
+.check input { width: 22px; height: 22px; flex: 0 0 auto; margin: 0; accent-color: var(--accent); }
+ul.steps { list-style: disc; }
+#share-preview td { line-height: 1.5; padding: 10px 2px; font-size: 13px; overflow-wrap: anywhere; }
+#share-preview .d { margin-bottom: 4px; }
+
+/* すっきり見せる：一覧は1枚の面に線で区切る。色は1位だけ */
+.screen { gap: 18px; }
+.list { gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.list .card { border: 0; border-radius: 0; background: transparent; padding: 13px 14px; gap: 6px; }
+.list .card + .card { border-top: 1px solid var(--line); }
+.list .card:focus-visible { outline-offset: -2px; }
+.list .empty { border: 0; background: transparent; }
+.list > :nth-child(-n+3) .rank { background: var(--surface-2); color: var(--fg); }
+.list > :first-child .rank { background: var(--accent); color: var(--accent-ink); }
+.metaline { font-size: 12.5px; color: var(--muted); padding-left: 38px; line-height: 1.5; }
+.card .gm, .card .spark { margin-top: 4px; }
+.hero { padding: 18px; }
+.hero .alts span { font-weight: 400; }
+.btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.list .wd { display: none; } /* 名前に区・駅が入っているので、下の小さな行は出さない */
+.stat .v { font-size: 22px; white-space: nowrap; }
+.samplebar { margin-bottom: 12px; }
+details.panel:not([open]) { padding-block: 8px; }
+</style>
+</head>
+<body>
+<noscript><p style="padding:16px">このアプリは JavaScript を使います。ブラウザの設定で JavaScript を有効にしてください。</p></noscript>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="lamp" aria-hidden="true">空車</span><h1>流しナビ</h1></div>
+    <div class="clock" id="clock"><small>いま</small>—</div>
+  </header>
+
+  <!-- はじめの画面（記録がまだないとき） -->
+  <section class="welcome" id="s-welcome" hidden>
+    <p class="big">自分の乗務記録から、いま・どこへ行けば客がつきやすいかを出すアプリです。</p>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".csv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+      <span class="primary">記録のファイルを選ぶ</span>
+      <span class="sub">運行の記録（1乗車1行）のExcel（.xlsx）かCSVを選んでください。Googleスプレッドシートは「ファイル→ダウンロード」で .xlsx か .csv にしてから選びます。</span>
+    </label>
+    <div class="btnrow">
+      <button class="ghost wide" type="button" id="open-ai">日報の写真から読み取る</button>
+      <button class="ghost wide" type="button" id="try-sample">サンプルで試す</button>
+    </div>
+    <div class="err" id="load-err" hidden></div>
+    <p class="sub">読み込んだ記録は、この端末の中だけに保存されます。ほかの人やサーバーには送られません。</p>
+    <details class="panel fold">
+      <summary>記録の形（ExcelやCSVの並べ方）</summary>
+      <p class="sub">見出しの行の下に、1乗車ずつ1行。ExcelでもCSVでも同じ並びです。曜日の列はなくても大丈夫です（日付から出します）。</p>
+      <pre class="csv">日付,乗車,降車,乗車地,降車地,営業km
+2025/02/21,9:02,9:10,川崎市宮前区有馬2,センター北駅,3.3
+2025/02/21,9:16,9:22,都筑区すみれが丘,センター北駅,1.8
+2025/02/21,11:36,11:46,宮前平駅,宮前区白幡台2,2.5</pre>
+      <ol class="steps">
+        <li>乗車地・降車地は「区や市＋町名＋丁目の数字」（例：宮前区有馬2、世田谷区奥沢8）か、駅名（例：鷺沼駅、たまプラーザ北口）で書きます。</li>
+        <li>営業kmは空欄でも読み込めます（距離の集計から外れます）。</li>
+        <li>Excelは、シートがいくつかあるとき（月ごとなど）は、見出しのあるシートをすべて読みます。</li>
+        <li>地図とおすすめは、東京都と神奈川県の住所・駅に対応しています。</li>
+      </ol>
+    </details>
+    <details class="panel fold installbox" hidden><summary>ホーム画面に追加して、アプリのように使う</summary></details>
+  </section>
+
+  <!-- AIで読み取る（日報の写真 → 自分のAIアプリ → 返ってきた表を貼り付け） -->
+  <section class="welcome" id="s-ai" aria-label="日報の写真をAIで読み取る" hidden>
+    <div class="row2"><h2>日報の写真をAIで読み取る</h2><button class="ghost" type="button" id="ai-back">もどる</button></div>
+    <p class="sub">日報の写真を、自分の ChatGPT（チャッピー）か Claude のアプリに読ませて、返ってきた表をここに貼り付けます。AIの無料プランでも、数枚ずつなら使えます。</p>
+    <div class="note">このアプリが写真や記録をAIに送ることはありません。写真を送るのは、あなた自身のAIアプリです。</div>
+    <div class="err"><b>気をつけること</b><br>日報は会社の記録です。AIに写真を送ってよいか、会社のルールを確認してから使ってください。写真にお客さんの情報が写っている場合は、送る前にその部分を隠してください。</div>
+
+    <section class="panel">
+      <h2><span class="stepno">1</span>指示文をコピーする</h2>
+      <button class="primary" type="button" id="ai-copy">指示文をコピー</button>
+      <details class="fold"><summary>指示文の中身を見る</summary><pre class="csv wrap" id="ai-prompt"></pre></details>
+    </section>
+
+    <section class="panel">
+      <h2><span class="stepno">2</span>AIに写真と指示文を送る</h2>
+      <ol class="steps">
+        <li>ChatGPT か Claude のアプリを開き、新しいチャットを始める。</li>
+        <li>日報の写真を添付する（1日分。2ページあるときは2枚とも）。</li>
+        <li>コピーした指示文を貼り付けて送る。</li>
+        <li>返ってきた表の右上の「コピー」を押す（出ないときは、返事の文字を長押しして全部コピー）。</li>
+        <li>このアプリに戻る。</li>
+      </ol>
+      <div class="row2" style="justify-content:flex-start">
+        <a class="ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPTを開く</a>
+        <a class="ghost" href="https://claude.ai/new" target="_blank" rel="noopener">Claudeを開く</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="stepno">3</span>AIの返事を貼り付ける</h2>
+      <textarea class="ta" id="ai-text" rows="6" aria-label="AIの返事" placeholder="日付,乗車,降車,乗車地,降車地,営業km&#10;2025/02/21,9:02,9:10,宮前区有馬2,センター北駅,3.3"></textarea>
+      <div class="row2">
+        <button class="ghost" type="button" id="ai-paste">コピーしたものを貼り付ける</button>
+        <button class="ghost" type="button" id="ai-clear">空にする</button>
+      </div>
+      <button class="primary" type="button" id="ai-parse">表にして確かめる</button>
+      <div class="err" id="ai-err" hidden></div>
+    </section>
+
+    <section class="panel" id="ai-review" hidden>
+      <h2><span class="stepno">4</span>写真と見比べて直す</h2>
+      <p class="sub">時刻や地名が写真と合っているか、ざっと確かめてください。色のついた欄は、AIが読めなかったか、形が合っていないところです。欄をタップするとその場で直せます。</p>
+      <p class="sub" id="ai-sum" aria-live="polite"></p>
+      <div class="alist" id="ai-rows"></div>
+      <button class="ghost wide" type="button" id="ai-addrow">行を足す</button>
+      <button class="primary" type="button" id="ai-import">取り込む</button>
+      <p class="sub" id="ai-left"></p>
+    </section>
+
+    <details class="panel fold">
+      <summary>うまくいかないとき</summary>
+      <ol class="steps">
+        <li><b>表ではなく文章で返ってきた：</b>「CSVだけで返して」ともう一度送る。</li>
+        <li><b>貼り付けても表にならない：</b>返事を最後までコピーできているか確かめる。見出しの行（日付,乗車,…）が入っていると確実です。</li>
+        <li><b>行がずれている気がする：</b>「No.○の行の時刻と乗車地をもう一度確かめて」と、行番号を指定して聞き直す。</li>
+        <li><b>写真が暗い・ぼやけている：</b>明るい場所で、用紙全体が入るように真上から撮り直す。</li>
+      </ol>
+    </details>
+
+    <details class="panel fold">
+      <summary>スプレッドシートにためたい人へ</summary>
+      <p class="sub">GoogleスプレッドシートやExcelに表をためておき、あとでまとめて読み込む方法です。こちらは表の形で返してもらう指示文を使います。</p>
+      <ol class="steps">
+        <li>ChatGPT（または Claude）のアプリで新しいチャットを始め、日報の写真を添付する。</li>
+        <li>下の指示文を貼り付けて送る。</li>
+        <li>返ってきた表の右上の「コピー」を押す。</li>
+        <li>スプレッドシートを開き、空いている行の一番左（A列）を選んで貼り付ける。1枚目の写真のときだけ見出しの行も一緒に貼り、2枚目からは見出しの行を消してから貼る。</li>
+        <li>写真と見比べて確かめる。空欄はAIが読めなかったところなので、写真を見て手で直す。</li>
+        <li>たまったら「ファイル → ダウンロード」で .xlsx か .csv にして、このアプリの「記録を追加する」で選ぶ。</li>
+      </ol>
+      <button class="ghost wide" type="button" id="ai-copy2">スプレッドシート用の指示文をコピー</button>
+      <details class="fold"><summary>指示文の中身を見る</summary><pre class="csv wrap" id="ai-prompt2"></pre></details>
+      <p class="sub">貼り付けたら1つのセルに全部入ったときは、「タブ区切りのテキストで返して」と頼んで、もう一度コピーして貼ります。</p>
+    </details>
+  </section>
+
+  <!-- 記録の提供（同意した人だけ。町名までに丸めて運営者に送る） -->
+  <section class="welcome" id="s-share" aria-label="記録の提供について" hidden>
+    <div class="row2"><h2>記録の提供について</h2><button class="ghost" type="button" id="share-back">もどる</button></div>
+    <p class="sub">同意した運転手さんの記録を集めて、全体の傾向を調べる取り組みです。<b>送らなくても、このアプリはこれまでどおり全部使えます。</b>ほかの運転手さんの記録が、このアプリで見えることはありません。</p>
+    <div class="note" id="share-state"></div>
+
+    <section class="panel">
+      <h2>何のために・誰に</h2>
+      <ul class="steps">
+        <li><b>目的：</b><span id="share-purpose"></span></li>
+        <li><b>送り先：</b><span id="share-who"></span>。運営者のGoogleスプレッドシートに保存され、運営者だけが見ます。</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>送るもの</h2>
+      <ul class="steps">
+        <li>日付と曜日</li>
+        <li>乗車と降車の時刻</li>
+        <li>乗車地と降車地（<b>区・市と町名まで</b>、または駅名。例：宮前区有馬2 → 宮前区 有馬）</li>
+        <li>営業km</li>
+        <li>この端末で作ったでたらめな番号（送信ID。名前とは結びつきません）</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>送らないもの</h2>
+      <ul class="steps">
+        <li>丁目の番号、番地</li>
+        <li>地図の辞書にない場所の名前（病院・会社・お店・個人宅の名前など。その欄は空にして送ります）</li>
+        <li>運転手の名前、会社名、車両番号、料金、お客さんの情報（このアプリはもともと読み込みません）</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>実際に送られる内容</h2>
+      <p class="sub" id="share-prev-note"></p>
+      <table class="ltable" id="share-preview"></table>
+    </section>
+    <div class="err"><b>会社のルールを確認してください</b><br>日報は会社の記録でもあります。乗車地・降車地と時刻は、町名までに丸めても、お客さんの行き先が分かりうる情報です。内容を外に出してよいか、会社のルールをご自身で確認してください。</div>
+    <section class="panel">
+      <h2>やめるとき・消したいとき</h2>
+      <ul class="steps">
+        <li>記録の画面の「提供をやめる」を押すと、それ以降は何も送りません。</li>
+        <li>すでに送った記録は、このアプリからは消せません。消してほしいときは、下の送信IDを運営者に伝えてください。<span id="share-contact"></span></li>
+        <li>同意すると、いま端末にある記録と、これから読み込む記録を自動で送ります。</li>
+      </ul>
+      <p class="sub" id="share-sid"></p>
+    </section>
+
+    <div class="sec" id="share-off-box">
+      <label class="check"><input type="checkbox" id="share-agree"><span>上の内容を読みました。会社のルールも確認しました。</span></label>
+      <button class="primary" type="button" id="share-yes" disabled>同意して送る</button>
+      <button class="ghost wide" type="button" id="share-no">送らない</button>
+    </div>
+    <div class="sec" id="share-on-box" hidden>
+      <button class="danger" type="button" id="share-stop2" style="padding:13px 14px;font-size:14px;border-radius:14px">提供をやめる</button>
+    </div>
+  </section>
+
+  <div class="samplebar" id="samplebar" hidden><span>いまはサンプル（架空の記録）を表示しています。</span><button class="ghost" type="button" id="leave-sample">自分の記録を入れる</button></div>
+
+  <!-- いま -->
+  <main class="screen" id="s-now" aria-label="いま、どこへ行くか" hidden>
+    <div class="sec">
+      <div class="wd7" id="now-wd" role="group" aria-label="曜日"></div>
+      <div class="stepper">
+        <button class="stepbtn" id="h-prev" type="button" aria-label="1時間前">‹</button>
+        <div class="stepval"><b id="h-val">—</b><span>選んだ時刻から2時間の記録</span></div>
+        <button class="stepbtn" id="h-next" type="button" aria-label="1時間後">›</button>
+      </div>
+      <div class="row2"><p class="sub" id="now-basis">—</p><button class="ghost" id="now-reset" type="button">いまに戻す</button></div>
+    </div>
+    <section class="hero" id="hero" aria-live="polite"></section>
+    <div class="panel"><div class="mapbox" id="now-map"></div><div class="info" id="now-map-info">番号をタップすると詳しく出ます。</div></div>
+    <section class="sec">
+      <h2>この時間に客がついた場所</h2>
+      <p class="sub">似た曜日・前後の時間・最近の記録を重く数えた、1日あたりの目安です。タップすると時間ごとの実績と地図のボタンが出ます。</p>
+      <div class="list" id="now-list"></div>
+    </section>
+    <section class="sec" id="minna-now" hidden>
+      <h2>みんなのデータでは</h2>
+      <p class="sub" id="minna-now-sub"></p>
+      <div class="list" id="minna-now-list"></div>
+    </section>
+  </main>
+
+  <!-- 降ろしたあと -->
+  <main class="screen" id="s-after" aria-label="降ろしたあと" hidden>
+    <div class="sec">
+      <h2>どこで降ろした？</h2>
+      <div class="chips" id="drop-area" role="group" aria-label="降ろした区・市"></div>
+      <div class="chips" id="drop-place" role="group" aria-label="降ろした町・駅"></div>
+      <div class="chips" id="drop-band" role="group" aria-label="時間帯"></div>
+    </div>
+    <section class="hero" id="after-hero" aria-live="polite"></section>
+    <div class="panel"><div class="mapbox" id="after-map"></div><div class="info" id="after-map-info">線は降ろした場所から次の客の場所へ。</div></div>
+    <section class="sec">
+      <h2>次の客を乗せた場所</h2>
+      <p class="sub">同じ日の次の乗車がどこだったかの順位です。「空車」は次の乗車までの時間の中央値。タップで地図のボタンが出ます。</p>
+      <div class="list" id="after-list"></div>
+    </section>
+    <section class="sec" id="minna-after" hidden>
+      <h2>みんなのデータでは</h2>
+      <p class="sub" id="minna-after-sub"></p>
+      <div class="list" id="minna-after-list"></div>
+    </section>
+  </main>
+
+  <!-- 地図（画面いっぱい） -->
+  <main class="screen" id="s-map" aria-label="地図" hidden>
+    <div class="mapbox" id="map"></div>
+    <div class="mapover">
+      <div class="chips" id="map-scope" role="group" aria-label="地図に出すもの">
+        <button class="chip" type="button" data-scope="slot" aria-pressed="true">いまの候補</button>
+        <button class="chip" type="button" data-scope="after" aria-pressed="false">降ろしたあと</button>
+        <button class="chip" type="button" data-scope="all" aria-pressed="false">全期間</button>
+      </div>
+      <div class="mappill" id="map-title">地図</div>
+    </div>
+    <div class="mapsheet" id="map-sheet" aria-label="順位"></div>
+  </main>
+
+  <!-- 記録 -->
+  <main class="screen" id="s-log" aria-label="記録" hidden>
+    <div class="stats" id="log-stats"></div>
+    <section class="panel">
+      <h2>おすすめの当たり具合</h2>
+      <p class="sub" id="bt-note">—</p>
+      <table class="ltable" id="bt-table"></table>
+    </section>
+    <section class="panel">
+      <h2>曜日と時間ごとの乗車</h2>
+      <p class="sub">色が濃いほど1日あたりの乗車が多い時間です。マスをタップすると、その曜日・時刻を「いま」で開きます。</p>
+      <div class="heat" id="heat"></div>
+    </section>
+    <section class="panel">
+      <h2>月ごとの乗車回数</h2>
+      <div class="months" id="months"></div>
+    </section>
+    <section class="sec">
+      <h2>長めの客がつきやすい乗り場</h2>
+      <p class="sub">全期間で10回以上乗せた場所を、平均距離の長い順に並べています。タップで地図のボタンが出ます。</p>
+      <div class="list" id="long-list"></div>
+    </section>
+    <section class="panel">
+      <h2>長距離の記録</h2>
+      <table class="ltable" id="long-table"></table>
+    </section>
+    <section class="panel" id="share-panel" hidden>
+      <h2>記録の提供</h2>
+      <p class="sub" id="share-status">—</p>
+      <div class="err" id="share-msg" hidden></div>
+      <div class="row2" style="justify-content:flex-start">
+        <button class="ghost" type="button" id="share-open">提供について読む</button>
+        <button class="ghost" type="button" id="share-send" hidden>いま送る</button>
+        <button class="danger" type="button" id="share-stop" hidden>提供をやめる</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>記録の管理</h2>
+      <p class="sub" id="data-info">—</p>
+      <div class="row2">
+        <label class="ghost" for="file2" style="cursor:pointer">記録を追加する</label>
+        <input type="file" id="file2" accept=".csv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+        <label class="ghost" for="file3" style="cursor:pointer">入れ替える</label>
+        <input type="file" id="file3" accept=".csv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+        <button class="danger" type="button" id="clear-data">この端末から消す</button>
+      </div>
+      <button class="ghost wide" type="button" id="open-ai2">日報の写真からAIで読み取って追加する</button>
+      <div class="err" id="clear-confirm" hidden>この端末に保存した記録を消します。もう一度押すと消します。</div>
+      <p class="sub" id="unmatched"></p>
+    </section>
+    <details class="panel fold installbox" hidden><summary>ホーム画面に追加して、アプリのように使う</summary></details>
+    <p class="foot">地図：国土地理院（淡色地図）。住所の位置：Geolonia 住所データ。駅の位置：open-data-jp-railway-stations。位置は町・駅の代表地点で、おおよそです。</p>
+  </main>
+</div>
+
+<div class="tabs" id="tabs" hidden>
+  <nav role="tablist" aria-label="画面">
+    <button class="tab" role="tab" type="button" data-tab="now" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>いま</button>
+    <button class="tab" role="tab" type="button" data-tab="after" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12"/><path d="M13 6l6 6-6 6"/></svg>降ろしたあと</button>
+    <button class="tab" role="tab" type="button" data-tab="map" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>地図</button>
+    <button class="tab" role="tab" type="button" data-tab="log" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>記録</button>
+  </nav>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+  // d3（外部の部品）が読めなかったときは、白い画面のままにせず理由を出す
+  if (!window.d3) {
+    const w = document.getElementById('s-welcome'), e = document.getElementById('load-err');
+    w.hidden = false; e.textContent = 'アプリの部品を読み込めませんでした。通信できる場所で開き直してください。'; e.hidden = false;
+    return;
+  }
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const DAYS = ['月', '火', '水', '木', '金', '土', '日'];
+  const BANDS = [['朝', '朝 〜9時'], ['昼', '昼 10〜14時'], ['夕方', '夕方 15〜18時'], ['夜', '夜 19時〜']];
+  const bandOf = (h) => h < 10 ? '朝' : h < 15 ? '昼' : h < 19 ? '夕方' : '夜';
+  const fmt0 = d3.format(','), fmt1 = d3.format('.1f'), fmt2 = d3.format('.2f');
+  const ses = { // タブを閉じるまでの覚え書き（AIアプリと行き来しても画面を戻せるように）
+    get: (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} },
+    del: (k) => { try { sessionStorage.removeItem(k); } catch (e) {} }
+  };
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del: (k) => { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  const jstNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const nowInfo = () => { const t = jstNow(); return { wd: DAYS[(t.getDay() + 6) % 7], h: Math.min(22, Math.max(6, t.getHours())) }; };
+  const tick = () => { const t = jstNow(); $('clock').replaceChildren(el('small', null, 'いま'), document.createTextNode(`${DAYS[(t.getDay() + 6) % 7]} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`)); };
+  tick(); setInterval(tick, 30000);
+
+  // ===== 位置の辞書 =====
+  let GEO = null;
+  const nz = (s) => (s || '').normalize('NFKC').replace(/ヶ/g, 'ケ').replace(/之/g, 'の').replace(/\s+/g, '').trim();
+  const resolveCache = new Map();
+  // 文字列 → { key: まとめる単位の名前, area, type: 駅/住所/その他, ll: [lat,lng] }
+  const resolve = (raw) => {
+    const s = nz(raw);
+    if (!s) return null;
+    if (resolveCache.has(s)) return resolveCache.get(s);
+    let r = null;
+    const m = s.match(/^(?:(?:東京都|神奈川県)?(?:川崎市|横浜市|相模原市)?)(.+?[区市町村])(.*?)(\d+)?(?:丁目)?(?:-.*)?$/);
+    if (m && GEO.areas[m[1]]) {
+      const [, area, rest, ch] = m;
+      for (const c of GEO.areas[area]) {
+        const t = c.towns;
+        let town = t[rest] ? rest : Object.keys(t).filter((k) => rest.startsWith(k)).sort((a, b) => b.length - a.length)[0];
+        if (town) { const v = t[town]; const cp = ch && v[2] && v[2][+ch]; r = { key: area + town, area, type: '住所', ll: v ? [v[0], v[1]] : null, pt: cp || [v[0], v[1]] }; break; }
+      }
+      if (!r && !/駅/.test(rest)) r = { key: area + (rest || ''), area, type: '住所', ll: null };
+    }
+    if (!r && (/駅/.test(s) || /(北口|南口|東口|西口|中央口)$/.test(s))) {
+      let b = s.replace(/^(JR|東急|小田急|京王|京急|相鉄)/, '').replace(/(北口|南口|東口|西口|中央口|改札口?)$/, '').replace(/駅.*$/, '');
+      for (const c of [b, b.replace(/ノ/g, 'の'), b.replace(/の/g, 'ノ'), '武蔵' + b]) {
+        if (GEO.stations[c]) { r = { key: c + '駅', area: c + '駅', type: '駅', ll: GEO.stations[c] }; break; }
+      }
+      if (!r) r = { key: b + '駅', area: 'その他', type: '駅', ll: null };
+    }
+    if (!r) r = { key: s, area: 'その他', type: 'その他', ll: null };
+    resolveCache.set(s, r);
+    return r;
+  };
+
+  // ===== CSV =====
+  const decode = (buf) => {
+    const u = new TextDecoder('utf-8').decode(buf);
+    if (!u.includes('\uFFFD')) return u.replace(/^\uFEFF/, '');
+    try { return new TextDecoder('shift_jis').decode(buf); } catch (e) { return u; }
+  };
+  const parseCSV = (text) => {
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+      else if (c === '"') q = true;
+      else if (c === ',' || c === '\t') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  };
+  const COLS = { 日付: ['日付', '乗務日', '日'], 乗車: ['乗車', '乗車時刻', '乗車時間'], 降車: ['降車', '降車時刻', '降車時間'], 乗車地: ['乗車地', '乗車場所'], 降車地: ['降車地', '降車場所'], 営業km: ['営業km', '営業キロ', 'km', '距離'] };
+  const toDate = (s) => { const m = nz(s).match(/^(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/); return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null; };
+  const toMin = (s) => { const m = nz(s).match(/(?:^|T)(\d{1,2})[:：時](\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+  const NEED = ['日付', '乗車', '乗車地'];
+  const headIdx = (row) => { const head = row.map((h) => nz(h)); const idx = {}; for (const [k, names] of Object.entries(COLS)) idx[k] = head.findIndex((h) => names.includes(h)); return idx; };
+  const toRecords = (text) => rowsToRecords(parseCSV(text));
+  // 行（文字列の配列）→ 記録。見出しは上から20行のうち最初に見つかった行を使う（Excelの表題の行を飛ばすため）
+  const rowsToRecords = (allRows) => {
+    const rows = allRows.filter((r) => r.some((x) => String(x).trim()));
+    if (rows.length < 2) throw new Error('データの行が見つかりませんでした。1行目に見出し、2行目から記録が入っているか確認してください。');
+    let hi = -1, idx = null;
+    for (let i = 0; i < Math.min(rows.length, 20); i++) { const x = headIdx(rows[i]); if (NEED.every((k) => x[k] >= 0)) { hi = i; idx = x; break; } }
+    if (hi < 0) {
+      const x = headIdx(rows[0]);
+      throw new Error(`見出しに「${NEED.filter((k) => x[k] < 0).join('」「')}」の列が見つかりません。見出しを「日付,乗車,降車,乗車地,降車地,営業km」の形にしてください。`);
+    }
+    const out = []; let bad = 0;
+    for (const r of rows.slice(hi + 1)) {
+      if (COLS.日付.includes(nz(r[idx.日付] || ''))) continue; // 途中にもう一度出てくる見出しの行
+      const d = toDate(r[idx.日付] || ''), t = toMin(r[idx.乗車] || '');
+      const pu = (r[idx.乗車地] || '').trim();
+      if (!d || t == null || !pu) { bad++; continue; }
+      const kmS = idx.営業km >= 0 ? nz(r[idx.営業km] || '') : '';
+      const km = kmS === '' || isNaN(+kmS) ? null : +kmS;
+      out.push({ d, t, dt: idx.降車 >= 0 ? toMin(r[idx.降車] || '') : null, pu, dp: idx.降車地 >= 0 ? (r[idx.降車地] || '').trim() : '', km });
+    }
+    if (!out.length) throw new Error('読み取れる行がありませんでした。日付（例 2025/02/21）と乗車時刻（例 9:02）の書き方を確認してください。');
+    return { recs: out, bad };
+  };
+
+  // ===== Excel（.xlsx／.xls） =====
+  // SheetJS は Excel のファイルを選んだときだけ読み込む
+  const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+  const XLSX_SRI = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
+  let xlsxP = null;
+  const loadXLSX = () => xlsxP || (xlsxP = new Promise((res, rej) => {
+    if (window.XLSX) { res(window.XLSX); return; }
+    const sc = document.createElement('script');
+    sc.src = XLSX_URL; sc.integrity = XLSX_SRI; sc.crossOrigin = 'anonymous';
+    sc.onload = () => res(window.XLSX);
+    sc.onerror = () => { xlsxP = null; sc.remove(); rej(new Error('Excelを読むための部品を読み込めませんでした。通信できる場所でもう一度選ぶか、CSVで保存したファイルを選んでください。')); };
+    document.head.append(sc);
+  }));
+  const isBook = (u8) => (u8[0] === 0x50 && u8[1] === 0x4B) || (u8[0] === 0xD0 && u8[1] === 0xCF); // zip（.xlsx）か旧形式（.xls）
+  const p2 = (n) => String(n).padStart(2, '0');
+  const bookToRecords = async (u8) => {
+    const X = await loadXLSX();
+    let wb;
+    try { wb = X.read(u8, { type: 'array', cellNF: true }); }
+    catch (e) { throw new Error('このファイルを開けませんでした。パスワードつきのファイルは読めません。Excelで .xlsx か CSV に保存し直して選んでください。'); }
+    const d1904 = !!(wb.Workbook && wb.Workbook.WBProps && wb.Workbook.WBProps.date1904);
+    // Excelの日付・時刻は数（1900年からの日数と、1日を1とした端数）で入っているので、文字に直す
+    const cellText = (c) => {
+      if (!c || c.v == null) return '';
+      if (c.t === 'n') {
+        const z = String(c.z == null ? '' : c.z);
+        if (!(X.SSF.is_date(z) || /^(1[4-9]|2[0-2]|4[5-7])$/.test(z))) return String(c.v);
+        let day = Math.floor(c.v), min = Math.round((c.v - day) * 1440);
+        if (min >= 1440) { day++; min = 0; }
+        const tm = `${Math.floor(min / 60)}:${p2(min % 60)}`;
+        if (day < 1) return tm;
+        const t = new Date(Date.UTC(1899, 11, 30) + (day + (d1904 ? 1462 : 0)) * 86400000);
+        const dt = `${t.getUTCFullYear()}/${p2(t.getUTCMonth() + 1)}/${p2(t.getUTCDate())}`;
+        return min ? `${dt}T${tm}` : dt;
+      }
+      if (c.t === 's') return String(c.v);
+      return c.w != null ? String(c.w) : String(c.v);
+    };
+    let recs = [], bad = 0, used = 0, firstErr = null;
+    for (const name of wb.SheetNames) {
+      const ws = wb.Sheets[name];
+      if (!ws || !ws['!ref']) continue;
+      const R = X.utils.decode_range(ws['!ref']);
+      const merged = new Map(); // 結合したセルは左上の値で埋める（日付を1日分まとめて結合している表のため）
+      (ws['!merges'] || []).forEach((m) => { const src = X.utils.encode_cell(m.s); for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) merged.set(X.utils.encode_cell({ r, c }), src); });
+      const rows = [];
+      for (let r = R.s.r; r <= R.e.r; r++) {
+        const row = [];
+        for (let c = R.s.c; c <= R.e.c; c++) { const a = X.utils.encode_cell({ r, c }); row.push(cellText(ws[merged.get(a) || a])); }
+        rows.push(row);
+      }
+      try { const o = rowsToRecords(rows); recs = recs.concat(o.recs); bad += o.bad; used++; }
+      catch (e) { if (!firstErr) firstErr = e; }
+    }
+    if (!used) throw firstErr || new Error('シートに記録が見つかりませんでした。');
+    return { recs, bad };
+  };
+  // 端末に保存する形（列の順番をそろえたCSV）
+  const recsToCSV = (recs) => {
+    const q = (v) => /[",\n\r\t]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const hm = (m) => m == null ? '' : `${Math.floor(m / 60)}:${p2(m % 60)}`;
+    return ['日付,乗車,降車,乗車地,降車地,営業km'].concat(recs.map((r) => [r.d.replace(/-/g, '/'), hm(r.t), hm(r.dt), q(r.pu), q(r.dp || ''), r.km == null ? '' : r.km].join(','))).join('\n') + '\n';
+  };
+
+  // ===== 集計 =====
+  let A = null; // 集計結果
+  const dnum = (d) => Math.round(Date.parse(d + 'T00:00:00Z') / 86400000);
+  const wdOf = (d) => DAYS[(new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7];
+  const isWE = (w) => w === '土' || w === '日';
+  const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  const build = (recs) => {
+    // 同じ乗車の重複（同じ日付・時刻・乗車地）は1回にまとめる
+    const seen = new Set();
+    const R = [];
+    for (const x of recs) {
+      const k = x.d + '|' + x.t + '|' + nz(x.pu); if (seen.has(k)) continue; seen.add(k);
+      const p = resolve(x.pu); const q = x.dp ? resolve(x.dp) : null;
+      R.push({ ...x, wd: wdOf(x.d), h: Math.floor(x.t / 60), p, q });
+    }
+    R.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.t - b.t);
+    const info = new Map(); // key → {area,type,ll}
+    R.forEach((x) => [x.p, x.q].forEach((r) => { if (r && !info.has(r.key)) info.set(r.key, r); }));
+    const days = new Map(); DAYS.forEach((w) => days.set(w, new Set()));
+    R.forEach((x) => days.get(x.wd).add(x.d));
+    const pairs = [];
+    for (let i = 0; i + 1 < R.length; i++) {
+      const a = R[i], b = R[i + 1];
+      if (a.d !== b.d || a.dt == null || !a.q) continue;
+      const g = b.t - a.dt; if (g < 0 || g > 180) continue;
+      pairs.push({ d: a.d, wd: a.wd, h: Math.floor(a.dt / 60), dp: a.q.key, da: a.q.area, np: b.p.key, g });
+    }
+    return { R, info, days, pairs, last: R.length ? R[R.length - 1].d : null };
+  };
+
+  // いま：重みつきの目安
+  const nowModel = (B, wd, h, opts = {}) => {
+    const R = opts.R || B.R, ref = dnum(opts.ref || B.last), half = 365;
+    const expo = {}; DAYS.forEach((w) => { let e = 0; (opts.days || B.days).get(w).forEach((d) => { e += Math.pow(0.5, (ref - dnum(d)) / half); }); expo[w] = e; });
+    const hw = (dh) => dh === 0 ? 1 : dh === 1 ? 0.5 : dh === 2 ? 0.15 : 0;
+    const sc = new Map(), raw = new Map(), kms = new Map();
+    for (const x of R) {
+      const w = hw(Math.abs(x.h - h));
+      if (!w) continue;
+      const ww = x.wd === wd ? 1 : isWE(x.wd) === isWE(wd) ? 0.35 : 0.2;
+      if (!expo[x.wd]) continue;
+      sc.set(x.p.key, (sc.get(x.p.key) || 0) + ww * w * Math.pow(0.5, (ref - dnum(x.d)) / half) / expo[x.wd]);
+      if (x.wd === wd && (x.h === h || x.h === h + 1)) { raw.set(x.p.key, (raw.get(x.p.key) || 0) + 1); }
+      if (x.wd === wd && Math.abs(x.h - h) <= 1 && x.km != null) { const a = kms.get(x.p.key) || []; a.push(x.km); kms.set(x.p.key, a); }
+    }
+    return [...sc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, s]) => {
+      let ks = kms.get(k) || [];
+      if (ks.length < 5) ks = (A && A.kmAll.get(k)) || ks;
+      const avg = ks.length ? d3.mean(ks) : 0, l5 = ks.length ? ks.filter((v) => v >= 5).length / ks.length : 0;
+      return { key: k, score: s, raw: raw.get(k) || 0, avg, l5 };
+    });
+  };
+
+  // 降ろしたあと：場所・時間帯・区で重ねる
+  const afterModel = (pairs, dp, band, area) => {
+    const add = (sc, list, w) => { const t = list.length; if (!t) return; const c = new Map(); list.forEach((x) => c.set(x.np, (c.get(x.np) || 0) + 1)); c.forEach((v, k) => sc.set(k, (sc.get(k) || 0) + w * v / t)); };
+    const bOk = (x) => band === 'all' || bandOf(x.h) === band;
+    const own = pairs.filter((x) => x.dp === dp && bOk(x));
+    const sc = new Map();
+    if (band === 'all') { add(sc, pairs.filter((x) => x.dp === dp), 0.5); add(sc, pairs.filter((x) => x.da === area), 0.3); }
+    else { add(sc, own, 1); add(sc, pairs.filter((x) => x.dp === dp), 0.5); add(sc, pairs.filter((x) => x.da === area), 0.3); add(sc, pairs.filter((x) => x.da === area && bOk(x)), 0.6); }
+    const list = [...sc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, s]) => {
+      const mine = own.filter((x) => x.np === k);
+      const gs = (mine.length ? mine : pairs.filter((x) => x.da === area && x.np === k)).map((x) => x.g);
+      return { key: k, score: s, n: mine.length, gap: median(gs), q: gs.length ? gs.filter((g) => g <= 15).length / gs.length : null };
+    });
+    const gs = own.map((x) => x.g);
+    const sameArea = own.length ? own.filter((x) => (A.info.get(x.np) || {}).area === area).length / own.length : null;
+    return { n: own.length, gap: median(gs), q: gs.length ? gs.filter((g) => g <= 15).length / gs.length : null, same: sameArea, list };
+  };
+
+  const analyse = (recs) => {
+    const B = build(recs);
+    const kmAll = new Map(); B.R.forEach((x) => { if (x.km != null) { const a = kmAll.get(x.p.key) || []; a.push(x.km); kmAll.set(x.p.key, a); } });
+    const gaps = new Map(); B.pairs.forEach((x) => { const k = x.wd + x.h; const a = gaps.get(k) || []; a.push(x.g); gaps.set(k, a); });
+    A = { ...B, kmAll, gaps };
+    A.backtest = backtest(B);
+    return A;
+  };
+
+  // 当たり具合：最後の約4分の1の期間を、それより前の記録だけで当てる
+  const backtest = (B) => {
+    const ds = [...new Set(B.R.map((x) => x.d))].sort();
+    if (ds.length < 40) return null;
+    const cut = ds[Math.floor(ds.length * 0.75)];
+    const tr = B.R.filter((x) => x.d < cut), te = B.R.filter((x) => x.d >= cut);
+    const days = new Map(); DAYS.forEach((w) => days.set(w, new Set())); tr.forEach((x) => days.get(x.wd).add(x.d));
+    const cache = new Map(); let h5 = 0, n1 = 0;
+    const saveA = A; A = { kmAll: new Map() };
+    te.forEach((x) => { const k = x.wd + x.h; if (!cache.has(k)) cache.set(k, nowModel(B, x.wd, x.h, { R: tr, days, ref: cut }).map((p) => p.key)); n1++; if (cache.get(k).slice(0, 5).includes(x.p.key)) h5++; });
+    const ptr = B.pairs.filter((x) => x.d < cut), pte = B.pairs.filter((x) => x.d >= cut);
+    A = { info: B.info, kmAll: new Map() };
+    let a3 = 0, a5 = 0; const c2 = new Map();
+    pte.forEach((x) => { const k = x.dp + '|' + bandOf(x.h); if (!c2.has(k)) c2.set(k, afterModel(ptr, x.dp, bandOf(x.h), x.da).list.map((p) => p.key)); const l = c2.get(k); if (l.slice(0, 3).includes(x.np)) a3++; if (l.slice(0, 5).includes(x.np)) a5++; });
+    A = saveA;
+    return { cut, n: te.length, now5: h5 / n1, m: pte.length, after3: pte.length ? a3 / pte.length : null, after5: pte.length ? a5 / pte.length : null };
+  };
+
+  // ===== 画面 =====
+  const S = { tab: 'now', wd: null, h: null, dropArea: null, dropPlace: null, dropBand: null, mapScope: 'slot', open: null, sample: false };
+  { const n = nowInfo(); S.wd = n.wd; S.h = n.h; S.dropBand = bandOf(n.h); }
+  const infoOf = (k) => A.info.get(k) || { area: '', type: '', ll: null };
+  const short = (k) => { const i = infoOf(k); return i.type === '住所' && k.startsWith(i.area) && k.length > i.area.length ? k.slice(i.area.length) : k; };
+  const subOf = (k) => { const i = infoOf(k); return i.type === '駅' ? '駅' : i.type === '住所' ? i.area : 'その他'; };
+  const stat = (label, value, unit, note) => { const s = el('div', 'stat'); s.append(el('span', 'l', label)); const v = el('span', 'v', value); if (unit) v.append(el('small', null, unit)); s.append(v); if (note) s.append(el('span', 'n', note)); return s; };
+  const gmLinks = (k) => {
+    const box = el('div', 'gm'); const i = infoOf(k);
+    const q = i.ll ? `${i.ll[0]},${i.ll[1]}` : k;
+    const a1 = el('a', 'gmbtn', 'Googleマップで見る'); a1.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(i.type === '住所' ? k : q);
+    const a2 = el('a', 'gmbtn nav', 'ここへナビ'); a2.href = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(q);
+    [a1, a2].forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; a.addEventListener('click', (e) => e.stopPropagation()); });
+    box.append(a1, a2); return box;
+  };
+
+  const tapCard = (c, open, fn) => { c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-expanded', String(open)); c.onclick = fn; c.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } }; };
+
+  // ===== みんなのデータ（運営者が tools/build_minna.py で作る集計。中身がなければ何も出さない） =====
+  let MINNA = null;
+  const minnaRow = (i, name, right, unit, note) => {
+    const c = el('div', 'card'); c.style.cursor = 'default';
+    const hd = el('div', 'hd'); hd.append(el('span', 'rank', i + 1));
+    const nm = el('div'); nm.append(el('div', 'nm', name));
+    const cnt = el('div', 'cnt', right); cnt.append(el('small', null, unit)); hd.append(nm, cnt);
+    c.append(hd); if (note) c.append(el('div', 'metaline', note));
+    return c;
+  };
+  const minnaNote = () => `同意した運転手さん${fmt0(MINNA.drivers)}人・${fmt0(MINNA.rides)}回の記録から（${String(MINNA.made || '').replace(/-/g, '/')}時点）。回数の少ないところは出していません。`;
+  const renderMinnaNow = (own) => {
+    const sec = $('minna-now'); sec.hidden = true;
+    if (!MINNA) return;
+    const dt = isWE(S.wd) ? '土日' : '平日', src = (MINNA.now || {})[dt] || {};
+    const m = new Map(); [S.h, S.h + 1].forEach((h) => (src[h] || []).forEach(([k, n]) => m.set(k, (m.get(k) || 0) + n)));
+    const top = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (!top.length) return;
+    sec.hidden = false;
+    sec.querySelector('h2').textContent = `みんなのデータでは（${dt}・${S.h}時台から2時間）`;
+    $('minna-now-sub').textContent = minnaNote();
+    $('minna-now-list').replaceChildren(...top.map(([k, n], i) => minnaRow(i, k, fmt0(n), '回', own.includes(k) ? '自分の記録でも上位' : '自分の記録では上位にない場所')));
+  };
+  const renderMinnaAfter = (own) => {
+    const sec = $('minna-after'); sec.hidden = true;
+    if (!MINNA || !S.dropPlace) return;
+    const top = ((MINNA.after || {})[S.dropPlace] || []).slice(0, 5);
+    if (!top.length) return;
+    sec.hidden = false;
+    sec.querySelector('h2').textContent = `みんなのデータでは（${S.dropPlace}で降ろしたあと）`;
+    $('minna-after-sub').textContent = minnaNote();
+    $('minna-after-list').replaceChildren(...top.map(([k, n, g], i) => minnaRow(i, k, fmt0(n), '回', `空車 中央値${g < 1 ? '1分未満' : g + '分'}` + (own.includes(k) ? '・自分の記録でも上位' : ''))));
+  };
+
+  const renderNow = () => {
+    $('now-wd').replaceChildren(...DAYS.map((d) => { const b = el('button', 'chip', d); b.type = 'button'; b.setAttribute('aria-pressed', String(d === S.wd)); b.onclick = () => { S.wd = d; S.open = null; renderAll(); }; return b; }));
+    $('h-val').textContent = `${S.h}:00〜${S.h + 2}:00`;
+    const days = A.days.get(S.wd).size;
+    const rawRows = A.R.filter((x) => x.wd === S.wd && (x.h === S.h || x.h === S.h + 1));
+    const live = nowInfo(); const isNow = live.wd === S.wd && live.h === S.h;
+    $('now-basis').textContent = `${S.wd}曜の記録 ${days}日分・この時間 ${rawRows.length}回${isNow ? '・いまの時刻' : ''}`;
+    $('now-reset').hidden = isNow;
+    const list = nowModel(A, S.wd, S.h);
+    const hero = $('hero'); hero.replaceChildren();
+    if (!list.length) hero.append(el('div', 'k', 'この時間の記録'), el('div', 'big', '記録がありません'), el('div', 'why', '時刻や曜日を変えてみてください。'));
+    else {
+      const top = list[0];
+      hero.append(el('div', 'k', `${S.wd}曜 ${S.h}時台からの2時間、客がつきやすい場所`), el('div', 'big', top.key), el('div', 'why', `目安は1日あたり${fmt2(top.score)}回。この曜日・時間の実績は${top.raw}回で、平均${fmt1(top.avg)}km。`));
+      const alts = el('div', 'alts'); list.slice(1, 3).forEach((p) => alts.append(el('span', null, `次点 ${p.key}`)));
+      const long = list.slice(0, 8).filter((p) => p.avg >= 3.5).sort((a, b) => b.avg - a.avg)[0];
+      if (long && long.key !== top.key) alts.append(el('span', null, `長距離なら ${long.key}（平均${fmt1(long.avg)}km）`));
+      hero.append(alts);
+      if (rawRows.length < 15) hero.append(el('div', 'why', 'この曜日・時間の記録が少ないため、前後の時間や似た曜日の記録も加えて順位を出しています。'));
+    }
+    drawMap($('now-map'), $('now-map-info'), { points: countBy(rawRows), pins: list.slice(0, 5).map((p, i) => ({ key: p.key, rank: i + 1, desc: `目安${fmt2(p.score)}回/日・実績${p.raw}回` })), labelTop: 3, onFull: () => { S.mapScope = 'slot'; setTab('map'); } });
+    const box = $('now-list'); box.replaceChildren();
+    if (!list.length) box.append(el('div', 'empty', 'この曜日・時刻の記録はありません'));
+    const max = list.length ? list[0].score : 1;
+    list.slice(0, 10).forEach((p, i) => {
+      const c = el('div', 'card'); c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-expanded', String(S.open === p.key));
+      const hd = el('div', 'hd'); hd.append(el('span', 'rank', i + 1));
+      const nm = el('div'); nm.append(el('div', 'nm', p.key), el('div', 'wd', subOf(p.key)));
+      const cnt = el('div', 'cnt', fmt2(p.score)); cnt.append(el('small', null, '回/日 目安')); hd.append(nm, cnt);
+      c.append(hd, el('div', 'metaline', `実績 ${p.raw}回・平均 ${fmt1(p.avg)}km` + (p.l5 >= 0.25 ? `・5km以上が${Math.round(p.l5 * 100)}%` : '')));
+      if (S.open === p.key) c.append(spark(p.key), gmLinks(p.key));
+      c.onclick = () => { S.open = S.open === p.key ? null : p.key; renderNow(); };
+      c.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.click(); } };
+      box.append(c);
+    });
+    renderMinnaNow(list.slice(0, 10).map((p) => p.key));
+    const ll = $('long-list'); ll.replaceChildren();
+    const lp = [...A.kmAll.entries()].filter(([, v]) => v.length >= 10).map(([k, v]) => ({ k, avg: d3.mean(v), l5: v.filter((x) => x >= 5).length / v.length, n: v.length })).sort((a, b) => b.avg - a.avg).slice(0, 6);
+    if (!lp.length) ll.append(el('div', 'empty', '10回以上乗せた場所がまだありません'));
+    lp.forEach((p, i) => {
+      const c = el('div', 'card');
+      const hd = el('div', 'hd'); hd.append(el('span', 'rank', i + 1));
+      const nm = el('div'); nm.append(el('div', 'nm', p.k), el('div', 'wd', subOf(p.k)));
+      const cnt = el('div', 'cnt', fmt1(p.avg)); cnt.append(el('small', null, 'km 平均')); hd.append(nm, cnt);
+      c.append(hd, el('div', 'metaline', `5km以上が${Math.round(p.l5 * 100)}%・${fmt0(p.n)}回`));
+      if (S.openL === p.k) c.append(gmLinks(p.k));
+      tapCard(c, S.openL === p.k, () => { S.openL = S.openL === p.k ? null : p.k; renderNow(); });
+      ll.append(c);
+    });
+  };
+  const countBy = (rows) => { const m = new Map(); rows.forEach((x) => m.set(x.p.key, (m.get(x.p.key) || 0) + 1)); return [...m.entries()].map(([key, n]) => ({ key, n })); };
+
+  const spark = (k) => {
+    const box = el('div', 'spark');
+    const rows = A.R.filter((x) => x.wd === S.wd && x.p.key === k);
+    const hours = d3.range(6, 24); const vals = hours.map((h) => rows.filter((x) => x.h === h).length);
+    const W = 300, H = 56, bw = W / hours.length; const y = d3.scaleLinear().domain([0, d3.max(vals) || 1]).range([0, H - 16]);
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', `${k}の${S.wd}曜の時間ごとの乗車回数`);
+    hours.forEach((h, i) => { const on = h === S.h || h === S.h + 1; svg.append('rect').attr('x', i * bw + 1).attr('y', H - 12 - y(vals[i])).attr('width', bw - 2).attr('height', Math.max(1, y(vals[i]))).attr('rx', 2).style('fill', on ? 'var(--accent)' : 'var(--muted)').style('opacity', on ? 1 : .45); if (h % 3 === 0) svg.append('text').attr('x', i * bw + bw / 2).attr('y', H - 1).attr('text-anchor', 'middle').text(h).style('font-size', '9px').style('fill', 'var(--muted)'); });
+    const mx = d3.max(vals);
+    box.append(svg.node(), el('div', 'cap', mx ? `${S.wd}曜の時間ごとの実績。いちばん多いのは${hours[vals.indexOf(mx)]}時台（${mx}回）` : `${S.wd}曜のこの場所の実績はありません（似た曜日・時間の記録から挙げています）`));
+    return box;
+  };
+
+  const renderAfter = () => {
+    const cnt = new Map(); A.pairs.forEach((x) => cnt.set(x.dp, (cnt.get(x.dp) || 0) + 1));
+    const areaTot = new Map(); cnt.forEach((n, k) => { const a = infoOf(k).type === '駅' ? '駅' : infoOf(k).area; areaTot.set(a, (areaTot.get(a) || 0) + n); });
+    const areas = [...areaTot.entries()].sort((a, b) => b[1] - a[1]).map(([a]) => a);
+    if (!areas.length) { $('after-hero').replaceChildren(el('div', 'k', '次の一手'), el('div', 'big', '降車地と降車時刻の記録が必要です'), el('div', 'why', 'CSVに降車・降車地の列があると、降ろしたあとの次の客の場所が出せます。')); ['drop-area', 'drop-place', 'drop-band', 'after-list'].forEach((id) => $(id).replaceChildren()); $('after-map').replaceChildren(); $('minna-after').hidden = true; return; }
+    if (!S.dropArea || !areas.includes(S.dropArea)) S.dropArea = areas[0];
+    const places = [...cnt.entries()].filter(([k]) => (infoOf(k).type === '駅' ? '駅' : infoOf(k).area) === S.dropArea).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    if (!S.dropPlace || !places.includes(S.dropPlace)) S.dropPlace = places[0];
+    $('drop-area').replaceChildren(...areas.slice(0, 16).map((a) => { const b = el('button', 'chip', a); b.type = 'button'; b.setAttribute('aria-pressed', String(a === S.dropArea)); b.onclick = () => { S.dropArea = a; S.dropPlace = null; renderAfter(); }; return b; }));
+    $('drop-place').replaceChildren(...places.slice(0, 24).map((p) => { const b = el('button', 'chip', S.dropArea === '駅' ? p : short(p)); b.type = 'button'; b.setAttribute('aria-pressed', String(p === S.dropPlace)); b.onclick = () => { S.dropPlace = p; renderAfter(); }; return b; }));
+    $('drop-band').replaceChildren(...[['all', 'いつでも'], ...BANDS].map(([k, l]) => { const b = el('button', 'chip', l); b.type = 'button'; b.setAttribute('aria-pressed', String(k === S.dropBand)); b.onclick = () => { S.dropBand = k; renderAfter(); }; return b; }));
+    const area = infoOf(S.dropPlace).area;
+    const r = afterModel(A.pairs, S.dropPlace, S.dropBand, area);
+    const hero = $('after-hero'); hero.replaceChildren();
+    const bandTxt = S.dropBand === 'all' ? '' : S.dropBand + 'に';
+    if (!r.list.length) hero.append(el('div', 'k', '次の一手'), el('div', 'big', '記録がありません'), el('div', 'why', '場所や時間帯を変えてみてください。'));
+    else {
+      const top = r.list[0];
+      hero.append(el('div', 'k', `${S.dropPlace}で${bandTxt}降ろしたあと`), el('div', 'big', `${top.key}へ`), el('div', 'why', top.gap != null ? `そこで次の客を乗せた記録が多く、空車は中央値${top.gap < 1 ? '1分未満' : fmt0(top.gap) + '分'}。` : 'そこで次の客を乗せた記録が多い場所です。'));
+      const alts = el('div', 'alts');
+      const quick = r.list.filter((p) => p.gap != null && p.n >= 2).sort((a, b) => a.gap - b.gap)[0];
+      if (quick && quick.key !== top.key) alts.append(el('span', null, `早くつくのは ${quick.key}（${quick.gap < 1 ? '1分未満' : fmt0(quick.gap) + '分'}）`));
+      r.list.slice(1, 3).forEach((p) => alts.append(el('span', null, p.key))); hero.append(alts);
+      if (r.n < 8) hero.append(el('div', 'why', `この場所・時間帯の記録は${r.n}回と少ないため、同じ区・市の傾向も加えて順位を出しています。`));
+    }
+    drawMap($('after-map'), $('after-map-info'), { origin: S.dropPlace, pins: r.list.slice(0, 5).map((p, i) => ({ key: p.key, rank: i + 1, desc: `${p.n}回・空車${p.gap == null ? '—' : p.gap < 1 ? '1分未満' : fmt0(p.gap) + '分'}` })), labelTop: 3, onFull: () => { S.mapScope = 'after'; setTab('map'); } });
+    const box = $('after-list'); box.replaceChildren();
+    const max = r.list.length ? r.list[0].score : 1;
+    r.list.slice(0, 8).forEach((p, i) => {
+      const c = el('div', 'card');
+      const hd = el('div', 'hd'); hd.append(el('span', 'rank', i + 1));
+      const nm = el('div'); nm.append(el('div', 'nm', p.key), el('div', 'wd', subOf(p.key)));
+      const cn = el('div', 'cnt', String(p.n)); cn.append(el('small', null, 'この場所から')); hd.append(nm, cn);
+      const bits = [];
+      if (p.gap != null) bits.push(`空車 中央値${p.gap < 1 ? '1分未満' : fmt0(p.gap) + '分'}`);
+      if (p.q != null) bits.push(`15分以内 ${Math.round(p.q * 100)}%`);
+      c.append(hd); if (bits.length) c.append(el('div', 'metaline', bits.join('・')));
+      if (S.openA === p.key) c.append(gmLinks(p.key));
+      tapCard(c, S.openA === p.key, () => { S.openA = S.openA === p.key ? null : p.key; renderAfter(); });
+      box.append(c);
+    });
+    renderMinnaAfter(r.list.slice(0, 8).map((p) => p.key));
+  };
+
+  // ===== 地図（国土地理院の淡色地図をz13で敷く） =====
+  const Z = 13, TS = 256;
+  const wpx = (ll) => { const n = Math.pow(2, Z) * TS; const s = Math.sin(ll[0] * Math.PI / 180); return [(ll[1] + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n]; };
+  const drawMap = (box, info, opt) => {
+    const W = Math.max(280, box.clientWidth || 340), H = Math.max(240, box.clientHeight || 300);
+    const T = GEO.tiles; const X0 = Math.min(...T.chunks.map((c) => c[0])) * TS, Y0 = Math.min(...T.chunks.map((c) => c[1])) * TS;
+    const P = (k) => { const i = infoOf(k); if (!i.ll) return null; const [x, y] = wpx(i.ll); return [x - X0, y - Y0]; };
+    const pins = (opt.pins || []).filter((p) => P(p.key));
+    const pts = (opt.points || []).filter((p) => P(p.key));
+    const org = opt.origin && P(opt.origin) ? P(opt.origin) : null;
+    const all = [...pins.map((p) => P(p.key)), ...(org ? [org] : [])];
+    const pts2 = all.length ? all : pts.map((p) => P(p.key));
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', opt.label || '地図');
+    const g = svg.append('g');
+    const ovZ = 11, f = Math.pow(2, Z - ovZ);
+    g.append('image').attr('href', T.ov[2]).attr('x', T.ov[0] * TS * f - X0).attr('y', T.ov[1] * TS * f - Y0).attr('width', 7 * TS * f).attr('height', 7 * TS * f).attr('class', 'basemap').attr('preserveAspectRatio', 'none');
+    const tileG = g.append('g'); const loaded = new Set();
+    const loadTiles = (t) => {
+      const x0 = (-t.x) / t.k, y0 = (-t.y) / t.k, x1 = x0 + W / t.k, y1 = y0 + H / t.k;
+      if (t.k < 0.35) return;
+      T.chunks.forEach(([cx, cy, href]) => { const x = cx * TS - X0, y = cy * TS - Y0; if (x + 1024 < x0 || x > x1 || y + 1024 < y0 || y > y1 || loaded.has(href)) return; loaded.add(href); tileG.append('image').attr('href', href).attr('x', x).attr('y', y).attr('width', 1024).attr('height', 1024).attr('class', 'basemap'); });
+    };
+    const max = d3.max(pts, (p) => p.n) || 1;
+    const rr = d3.scaleSqrt().domain([0, max]).range([0, 22]);
+    const dots = g.append('g').selectAll('circle').data(pts.sort((a, b) => b.n - a.n)).join('circle').attr('class', 'heatdot').attr('cx', (p) => P(p.key)[0]).attr('cy', (p) => P(p.key)[1]);
+    dots.on('click', (e, p) => { if (info) info.replaceChildren(el('b', null, p.key), document.createTextNode(` ${p.n}回`)); });
+    const lines = g.append('g'); const orgG = g.append('g'); const pinG = g.append('g'); const labG = g.append('g');
+    if (org) pins.forEach((p) => { const [x, y] = P(p.key); lines.append('line').attr('x1', org[0]).attr('y1', org[1]).attr('x2', x).attr('y2', y).attr('class', 'flow'); });
+    let oSel = null; if (org) { oSel = orgG.append('g').attr('class', 'origin'); oSel.append('circle').attr('r', 9); oSel.append('text').attr('class', 'olab').attr('dy', -14).attr('text-anchor', 'middle').text('降ろした場所'); }
+    const PR = opt.pinR || 13, FS = opt.fontSize || 12;
+    const pinSel = pinG.selectAll('g').data(pins.slice().reverse()).join('g').attr('class', 'pin').style('cursor', 'pointer');
+    pinSel.append('circle').attr('r', PR); pinSel.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').text((p) => p.rank);
+    pinSel.on('click', (e, p) => { if (opt.onPin) opt.onPin(p); if (info) info.replaceChildren(el('b', null, `${p.rank}. ${p.key}`), document.createTextNode(` ${p.desc || ''}`)); });
+    const place = (k) => {
+      dots.attr('r', (p) => Math.max(3, rr(p.n)) / Math.sqrt(k)).style('stroke-width', 1 / k);
+      lines.selectAll('line').style('stroke-width', 3 / k);
+      pinSel.attr('transform', (p) => { const [x, y] = P(p.key); return `translate(${x},${y}) scale(${1 / k})`; });
+      if (oSel) oSel.attr('transform', `translate(${org[0]},${org[1]}) scale(${1 / k})`);
+      labG.selectAll('*').remove(); const used = [];
+      pins.filter((p) => p.rank <= (opt.labelTop || 3)).forEach((p) => {
+        const [x, y] = P(p.key);
+        const t = labG.append('text').attr('class', 'pinlab').attr('x', x + (PR + 4) / k).attr('y', y + 4 / k).style('font-size', (FS / k) + 'px').style('stroke-width', (3.5 / k) + 'px').text(short(p.key));
+        const b = t.node().getBBox(); if (used.some((u) => !(b.x + b.width < u.x || b.x > u.x + u.width || b.y + b.height < u.y || b.y > u.y + u.height))) t.attr('x', x - (PR + 4) / k).attr('text-anchor', 'end');
+        used.push(t.node().getBBox());
+      });
+    };
+    box.replaceChildren(svg.node());
+    const pad = opt.fill ? [44, 120, 70, 150] : [24, 24, 24, 24]; // 左,上,右,下
+    let t0;
+    if (pts2.length) {
+      const xs = pts2.map((p) => p[0]), ys = pts2.map((p) => p[1]);
+      const bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
+      const bw = Math.max(600, bx1 - bx0), bh = Math.max(600, by1 - by0);
+      const k = Math.min(2.5, Math.max(0.08, Math.min((W - pad[0] - pad[2]) / bw, (H - pad[1] - pad[3]) / bh)));
+      const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2;
+      t0 = d3.zoomIdentity.translate(pad[0] + (W - pad[0] - pad[2]) / 2, pad[1] + (H - pad[1] - pad[3]) / 2).scale(k).translate(-cx, -cy);
+    } else t0 = d3.zoomIdentity.scale(0.2);
+    const zoom = d3.zoom().scaleExtent([0.06, 4]).on('zoom', (e) => { g.attr('transform', e.transform); place(e.transform.k); }).on('end', (e) => loadTiles(e.transform));
+    svg.call(zoom).call(zoom.transform, t0); loadTiles(t0);
+    box.append(el('div', 'maphint', '2本指で拡大・ドラッグで移動'), el('div', 'credit', '国土地理院'));
+    if (opt.onFull) { const fb = el('button', 'mapfull', '⤢ 全画面'); fb.type = 'button'; fb.onclick = opt.onFull; box.append(fb); }
+    return { focus: (k) => { const p = P(k); if (!p) return; svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2 - 40).scale(2).translate(-p[0], -p[1])); } };
+  };
+
+  const renderMap = () => {
+    document.querySelectorAll('#map-scope .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === S.mapScope)));
+    const sheet = $('map-sheet'); let pins = [], opt = {};
+    if (S.mapScope === 'slot') {
+      $('map-title').textContent = `${S.wd}曜 ${S.h}時台から2時間・客がつきやすい場所`;
+      pins = nowModel(A, S.wd, S.h).slice(0, 8).map((p, i) => ({ key: p.key, rank: i + 1, main: `${fmt2(p.score)}回/日`, desc: `実績${p.raw}回・平均${fmt1(p.avg)}km` }));
+      opt = { points: countBy(A.R.filter((x) => x.wd === S.wd && (x.h === S.h || x.h === S.h + 1))) };
+    } else if (S.mapScope === 'after') {
+      if (!S.dropPlace) renderAfter();
+      $('map-title').textContent = `${S.dropPlace || '—'}で降ろしたあと・次の客の場所`;
+      const r = S.dropPlace ? afterModel(A.pairs, S.dropPlace, S.dropBand, infoOf(S.dropPlace).area) : { list: [] };
+      pins = r.list.slice(0, 6).map((p, i) => ({ key: p.key, rank: i + 1, main: `${p.n}回`, desc: `空車${p.gap == null ? '—' : p.gap < 1 ? '1分未満' : fmt0(p.gap) + '分'}` }));
+      opt = { origin: S.dropPlace };
+    } else {
+      $('map-title').textContent = '全期間・乗せた場所';
+      const c = countBy(A.R).sort((a, b) => b.n - a.n);
+      pins = c.slice(0, 10).map((p, i) => ({ key: p.key, rank: i + 1, main: `${fmt0(p.n)}回`, desc: subOf(p.key) }));
+      opt = { points: c };
+    }
+    const mark = (k) => sheet.querySelectorAll('.mcard').forEach((c) => c.setAttribute('aria-current', String(c.dataset.k === k)));
+    const api = drawMap($('map'), null, { ...opt, fill: true, pins, labelTop: 6, pinR: 16, fontSize: 14, onPin: (p) => { mark(p.key); const c = [...sheet.children].find((x) => x.dataset.k === p.key); if (c) c.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } });
+    sheet.replaceChildren(...pins.map((p) => {
+      const c = el('div', 'mcard'); c.tabIndex = 0; c.setAttribute('role', 'button'); c.dataset.k = p.key;
+      const top = el('div', 'mtop'); top.append(el('span', 'rank', p.rank), el('span', 'mname', p.key));
+      c.append(top, el('div', 'mmain', p.main), el('div', 'mdesc', p.desc), gmLinks(p.key));
+      c.onclick = () => { mark(p.key); api.focus(p.key); };
+      return c;
+    }));
+    if (!pins.length) sheet.replaceChildren(el('div', 'mcard', 'この条件の記録はありません'));
+  };
+
+  const renderLog = () => {
+    const R = A.R, ds = [...new Set(R.map((x) => x.d))].sort(), ks = R.filter((x) => x.km != null).map((x) => x.km);
+    $('log-stats').replaceChildren(stat('乗車', fmt0(R.length), '回', `${ds.length}日分`), stat('営業距離', fmt0(Math.round(d3.sum(ks))), 'km', ''), stat('1日の乗車', fmt1(R.length / Math.max(1, ds.length)), '回', ks.length ? `平均${fmt1(d3.mean(ks))}km/回` : ''));
+    const bt = A.backtest; const tb = $('bt-table'); tb.replaceChildren();
+    if (!bt) $('bt-note').textContent = '40日分以上の記録がたまると、ここに当たり具合が出ます。';
+    else {
+      $('bt-note').textContent = `${bt.cut.replace(/-/g, '/')}より前の記録だけで順位を作り、それ以降の実際の乗車と照らし合わせた結果です。`;
+      const row = (a, b) => { const tr = el('tr'); tr.append(el('td', null, a), el('td', 'r', b)); tb.append(tr); };
+      if (bt.after3 != null) { row('降ろしたあと：次の乗車地が上位3つに入った', Math.round(bt.after3 * 100) + '%'); row('降ろしたあと：上位5つに入った', Math.round(bt.after5 * 100) + '%'); }
+      row('いま：乗車地が上位5つに入った', Math.round(bt.now5 * 100) + '%');
+    }
+    const hours = d3.range(6, 24); const cnt = new Map(); R.forEach((x) => { const k = x.wd + '|' + x.h; cnt.set(k, (cnt.get(k) || 0) + 1); });
+    const hb = $('heat'); const W = Math.max(300, hb.clientWidth || 340), ml = 20, cw = (W - ml) / hours.length, ch = Math.min(30, cw * 1.25), H = 4 + ch * 7 + 16;
+    const per = (d, h) => (cnt.get(d + '|' + h) || 0) / Math.max(1, A.days.get(d).size);
+    const mx = d3.max(DAYS.flatMap((d) => hours.map((h) => per(d, h)))) || 1;
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', '曜日と時間ごとの乗車回数');
+    DAYS.forEach((d, i) => { svg.append('text').attr('x', 0).attr('y', 4 + i * ch + ch / 2 + 4).text(d); hours.forEach((h, j) => svg.append('rect').attr('x', ml + j * cw + 1).attr('y', 4 + i * ch + 1).attr('width', cw - 2).attr('height', ch - 2).attr('rx', 3).style('fill', 'var(--accent)').style('fill-opacity', 0.06 + 0.94 * per(d, h) / mx).style('cursor', 'pointer').on('click', () => { S.wd = d; S.h = Math.min(22, h); S.open = null; setTab('now'); })); });
+    hours.forEach((h, j) => { if (h % 3 === 0) svg.append('text').attr('x', ml + j * cw + cw / 2).attr('y', H - 2).attr('text-anchor', 'middle').text(h + '時'); });
+    hb.replaceChildren(svg.node());
+    const mon = d3.rollups(R, (v) => v.length, (x) => x.d.slice(0, 7)).sort((a, b) => a[0] < b[0] ? -1 : 1);
+    const mb = $('months'); const MW = Math.max(300, mb.clientWidth || 340), MH = 150;
+    const x = d3.scaleBand().domain(mon.map((m) => m[0])).range([0, MW]).padding(0.18), y = d3.scaleLinear().domain([0, d3.max(mon, (m) => m[1]) || 1]).range([MH - 30, 18]);
+    const ms = d3.create('svg').attr('viewBox', `0 0 ${MW} ${MH}`).attr('role', 'img').attr('aria-label', '月ごとの乗車回数');
+    mon.forEach((m, i) => { ms.append('rect').attr('x', x(m[0])).attr('y', y(m[1])).attr('width', x.bandwidth()).attr('height', y(0) - y(m[1])).attr('rx', 2).style('fill', 'var(--accent)'); if (m[0].endsWith('-01') || i === 0) ms.append('text').attr('x', x(m[0])).attr('y', MH - 4).text(m[0].slice(0, 4) + '/' + +m[0].slice(5)); });
+    if (mon.length) { const best = mon.reduce((a, b) => b[1] > a[1] ? b : a); ms.append('text').attr('x', x(best[0]) + x.bandwidth() / 2).attr('y', y(best[1]) - 3).attr('text-anchor', 'middle').text(best[1]).style('fill', 'var(--fg)'); }
+    mb.replaceChildren(ms.node());
+    const lt = $('long-table'); lt.replaceChildren();
+    R.filter((x) => x.km != null).sort((a, b) => b.km - a.km).slice(0, 8).forEach((r) => { const tr = el('tr'); const a = el('td'); a.append(el('div', null, `${r.pu} → ${r.dp || '—'}`), el('div', 'd', `${r.d.replace(/-/g, '/')}（${r.wd}）${Math.floor(r.t / 60)}:${String(r.t % 60).padStart(2, '0')}`)); tr.append(a, el('td', 'r', fmt1(r.km) + 'km')); lt.append(tr); });
+    const um = new Map(); R.forEach((x) => { if (!x.p.ll) um.set(x.pu, (um.get(x.pu) || 0) + 1); });
+    const top = [...um.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    $('unmatched').textContent = top.length ? `地図に出せなかった乗車地（多い順）：${top.map(([k, n]) => `${k}（${n}）`).join('、')}。区・市と町名を入れると地図に出ます。` : '';
+    $('data-info').textContent = S.sample ? 'いまはサンプル（架空の記録）です。この端末には保存していません。' : `この端末に ${fmt0(R.length)} 件（${ds[0].replace(/-/g, '/')}〜${ds[ds.length - 1].replace(/-/g, '/')}）を保存しています。`;
+  };
+
+  const renderAll = () => { if (!A) return; renderNow(); if (S.tab === 'after') renderAfter(); if (S.tab === 'map') renderMap(); if (S.tab === 'log') { renderLog(); renderShare(); } };
+  const setTab = (t) => {
+    S.tab = t; store.set('navi-tab', t);
+    ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = k !== t; });
+    document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
+    document.body.classList.toggle('mapmode', t === 'map');
+    const hd = document.querySelector('.top'), tb = $('tabs');
+    document.documentElement.style.setProperty('--hdr', hd.getBoundingClientRect().bottom + 'px');
+    document.documentElement.style.setProperty('--tabh', tb.getBoundingClientRect().height + 'px');
+    window.scrollTo({ top: 0 }); renderAll();
+  };
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  $('h-prev').onclick = () => { S.h = Math.max(6, S.h - 1); S.open = null; renderAll(); };
+  $('h-next').onclick = () => { S.h = Math.min(22, S.h + 1); S.open = null; renderAll(); };
+  $('now-reset').onclick = () => { const n = nowInfo(); S.wd = n.wd; S.h = n.h; S.open = null; renderAll(); };
+  document.querySelectorAll('#map-scope .chip').forEach((b) => b.addEventListener('click', () => { S.mapScope = b.dataset.scope; renderMap(); }));
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S.tab === 'map') setTab('map'); else renderAll(); }, 200); });
+
+  // ===== 読み込み =====
+  const showApp = () => {
+    $('s-welcome').hidden = true; $('s-ai').hidden = true; $('s-share').hidden = true; ses.del('navi-screen'); $('tabs').hidden = false; $('samplebar').hidden = !S.sample;
+    const saved = store.get('navi-tab'); setTab(['now', 'after', 'map', 'log'].includes(saved) ? saved : 'now');
+  };
+  const showWelcome = () => { A = null; $('s-ai').hidden = true; $('s-share').hidden = true; ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = true; }); $('tabs').hidden = true; $('samplebar').hidden = true; $('s-welcome').hidden = false; document.body.classList.remove('mapmode'); };
+  const showErr = (e) => { const b = $('load-err'); b.textContent = e.message; b.hidden = false; if (A) alertBox(e.message); };
+  // 読み取った記録を集計して、この端末に保存する
+  const commit = ({ recs, bad }, mode) => {
+    let all = recs;
+    if (mode === 'add') { const prev = store.get('navi-csv'); if (prev) all = toRecords(prev).recs.concat(recs); }
+    const seen = new Set(); all = all.filter((r) => { const k = `${r.d}|${r.t}|${nz(r.pu)}`; if (seen.has(k)) return false; seen.add(k); return true; }); // 同じ日付・乗車時刻・乗車地は1回にまとめる
+    S.sample = false; resolveCache.clear(); analyse(all);
+    const ok = store.set('navi-csv', recsToCSV(all));
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {} // 端末の空きが減っても記録を消されにくくする
+    showApp();
+    const msgs = [];
+    if (!ok) msgs.push('この端末に保存できませんでした（容量が足りないか、保存が止められています）。開いている間だけ使えます。');
+    if (bad) msgs.push(`${bad}行は日付・時刻・乗車地が読み取れなかったので飛ばしました。`);
+    if (msgs.length) alertBox(msgs.join(' '));
+    setTimeout(sendPending, 0); // 提供がオンのときだけ送る
+  };
+  const alertBox = (msg) => { const b = $('samplebar'); b.hidden = false; b.replaceChildren(el('span', null, msg)); const x = el('button', 'ghost', '閉じる'); x.type = 'button'; x.onclick = () => { b.hidden = true; }; b.append(x); };
+  const readFile = (file, mode) => {
+    const fr = new FileReader();
+    fr.onload = async () => {
+      const u8 = new Uint8Array(fr.result);
+      $('load-err').hidden = true;
+      try { commit(isBook(u8) ? await bookToRecords(u8) : toRecords(decode(u8)), mode); } catch (e) { showErr(e); }
+    };
+    fr.onerror = () => showErr(new Error('ファイルを読み込めませんでした。もう一度選んでください。'));
+    fr.readAsArrayBuffer(file);
+  };
+  $('file').addEventListener('change', (e) => { if (e.target.files[0]) readFile(e.target.files[0], 'replace'); e.target.value = ''; });
+  $('file2').addEventListener('change', (e) => { if (e.target.files[0]) readFile(e.target.files[0], 'add'); e.target.value = ''; });
+  $('file3').addEventListener('change', (e) => { if (e.target.files[0]) readFile(e.target.files[0], 'replace'); e.target.value = ''; });
+  const dz = $('drop');
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('over'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0], 'replace'); });
+  let armed = false;
+  $('clear-data').addEventListener('click', () => { if (!armed) { armed = true; $('clear-confirm').hidden = false; setTimeout(() => { armed = false; $('clear-confirm').hidden = true; }, 5000); return; } store.del('navi-csv'); store.del('navi-ai-text'); store.del('navi-ai-draft'); aiReset(); armed = false; $('clear-confirm').hidden = true; showWelcome(); });
+  $('leave-sample').addEventListener('click', () => { S.sample = false; showWelcome(); });
+
+  // ===== AIで読み取る =====
+  // 指示文は docs/ocr_prompt.md・docs/chatgpt_guide.md と同じ内容。直すときは両方を直す
+  const OCR_PROMPT = `この写真はタクシーの乗務員日報です。乗車の記録を、次の形のCSVにしてください。説明文は書かず、CSVだけを返してください。
+
+日付,乗車,降車,乗車地,降車地,営業km
+
+決まり:
+- 日付は日報上部の「出庫日時」の年月日を、2025/02/21 の形で全行に入れる。
+- 1乗車を1行にする。「出」（出庫）の行と「入」（入庫）の行は入れない。
+- 乗車地と降車地の両方が空欄の行（キャンセル）は入れない。
+- 乗車・降車は 9:02 の形。
+- 乗車地・降車地は日報の表記どおり（例：宮前区有馬2、たまプラーザ北口）。
+- 営業kmは数字だけ（例：3.3）。
+- 料金・人数・支払い・備考・手書きのメモは入れない。
+- 用紙が傾いていたら、No.の列と時刻・地名・kmの行の対応を、件数を数えて合わせる。
+- 読めない字は推測で埋めず、その欄を空にする。
+- 写真が2枚（1/2・2/2ページ）あれば、続けて1つの表にする。`;
+  const SHEET_PROMPT = `この写真はタクシーの乗務員日報です。乗車の記録を表にしてください。
+説明やあいさつは書かず、表だけを返してください。
+
+列は次の6つ、この順番です。
+日付 | 乗車 | 降車 | 乗車地 | 降車地 | 営業km
+
+決まり:
+- 日付は日報上部の「出庫日時」の年月日を 2025/02/21 の形で、全部の行に入れる。
+- 1乗車を1行にする。「出」（出庫）と「入」（入庫）の行は入れない。
+- 乗車地と降車地が両方とも空欄の行（キャンセル）は入れない。
+- 乗車・降車の時刻は 9:02 の形。
+- 乗車地・降車地は日報に書いてあるとおり（例：宮前区有馬2、たまプラーザ北口）。
+- 営業kmは数字だけ（例：3.3）。
+- 料金・人数・支払い・備考・手書きのメモは入れない。
+- 用紙が斜めに写っていたら、行がずれないように、No.の列と時刻・地名・kmを件数で数えて対応させる。
+- 読めない字は推測で埋めず、その欄を空にする。
+- 写真が2枚（1/2・2/2ページ）あるときは、続けて1つの表にする。
+- 最後に「全部で何件か」と「空欄にした箇所」を1行で書く。`;
+  $('ai-prompt').textContent = OCR_PROMPT; $('ai-prompt2').textContent = SHEET_PROMPT;
+  const copyText = async (text, btn) => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; }
+    catch (e) { const ta = el('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.append(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove(); }
+    const label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+    btn.textContent = ok ? 'コピーしました' : 'コピーできませんでした。下の「中身を見る」から長押しでコピーしてください';
+    setTimeout(() => { btn.textContent = label; }, ok ? 2000 : 5000);
+  };
+  $('ai-copy').addEventListener('click', (e) => copyText(OCR_PROMPT, e.currentTarget));
+  $('ai-copy2').addEventListener('click', (e) => copyText(SHEET_PROMPT, e.currentTarget));
+
+  // AIの返事（CSV／タブ区切り／｜で区切った表）→ 下書きの行。説明の文や ``` の行は捨てる
+  const hmOf = (m) => `${Math.floor(m / 60)}:${p2(m % 60)}`;
+  const parsePasted = (text) => {
+    const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => !/^\s*```/.test(l));
+    const filled = lines.filter((l) => l.trim());
+    const pipe = filled.filter((l) => (l.match(/[|｜]/g) || []).length >= 3);
+    let rows;
+    if (pipe.length >= 2 && pipe.length >= filled.length / 2) rows = pipe.map((l) => l.trim().replace(/^[|｜]|[|｜]$/g, '').split(/[|｜]/).map((c) => c.trim())).filter((r) => !r.every((c) => /^:?-*:?$/.test(c)));
+    else rows = parseCSV(lines.join('\n')).map((r) => r.map((c) => c.trim()));
+    rows = rows.filter((r) => r.some((c) => c));
+    let hi = -1, idx = null;
+    for (let i = 0; i < Math.min(rows.length, 20); i++) { const x = headIdx(rows[i]); if (NEED.every((k) => x[k] >= 0)) { hi = i; idx = x; break; } }
+    if (hi < 0) { // 見出しがないときは、決まった列の順番とみなす
+      const j = rows.findIndex((r) => r.length >= 4 && toDate(r[0]) && toMin(r[1]) != null);
+      if (j < 0) return [];
+      hi = j - 1; idx = { 日付: 0, 乗車: 1, 降車: 2, 乗車地: 3, 降車地: 4, 営業km: 5 };
+    }
+    const g = (r, k) => idx[k] >= 0 ? (r[idx[k]] || '').trim() : '';
+    const normD = (v) => { const d = toDate(v); return d ? d.replace(/-/g, '/') : v; };
+    const normT = (v) => { const m = toMin(v); return m == null ? v : hmOf(m); };
+    return rows.slice(hi + 1)
+      .filter((r) => !COLS.日付.includes(nz(g(r, '日付'))) && (toDate(g(r, '日付')) || toMin(g(r, '乗車')) != null || r.length >= 4))
+      .map((r) => ({ d: normD(g(r, '日付')), t: normT(g(r, '乗車')), dt: normT(g(r, '降車')), pu: g(r, '乗車地'), dp: g(r, '降車地'), km: nz(g(r, '営業km')) }));
+  };
+  // 1行の確かめ。bad＝このままでは取り込めない欄、warn＝空欄や形の合わない欄、off＝地図にない場所
+  const checkRow = (r) => {
+    const bad = {}, warn = {}, off = [];
+    if (!toDate(r.d)) bad.d = '日付を 2025/02/21 の形で入れてください';
+    if (toMin(r.t) == null) bad.t = '乗車の時刻を 9:02 の形で入れてください';
+    if (!r.pu.trim()) bad.pu = '乗車地を入れてください';
+    if (!r.dt.trim()) warn.dt = '降車の時刻が空欄'; else if (toMin(r.dt) == null) warn.dt = '降車の時刻は 9:10 の形で';
+    if (!r.dp.trim()) warn.dp = '降車地が空欄';
+    const k = nz(r.km); if (k === '') warn.km = '営業kmが空欄'; else if (isNaN(+k)) warn.km = '営業kmは数字だけ';
+    if (GEO) for (const f of ['pu', 'dp']) { const v = r[f].trim(); if (v) { const x = resolve(v); if (!x || !x.ll) off.push(v); } }
+    return { bad, warn, off, ok: !Object.keys(bad).length };
+  };
+  let draft = [];
+  try { const d = JSON.parse(store.get('navi-ai-draft') || '[]'); if (Array.isArray(d)) draft = d.filter((r) => r && typeof r === 'object').map((r) => ({ d: String(r.d || ''), t: String(r.t || ''), dt: String(r.dt || ''), pu: String(r.pu || ''), dp: String(r.dp || ''), km: String(r.km || '') })); } catch (e) {}
+  const saveDraft = () => { if (draft.length) store.set('navi-ai-draft', JSON.stringify(draft)); else store.del('navi-ai-draft'); };
+  const AF = [['d', '日付', 'text'], ['t', '乗車', 'text'], ['dt', '降車', 'text'], ['km', '営業km', 'decimal'], ['pu', '乗車地', 'text'], ['dp', '降車地', 'text']];
+  const updSum = () => {
+    const cs = draft.map(checkRow);
+    const ok = cs.filter((c) => c.ok).length, ng = cs.length - ok;
+    const marks = d3.sum(cs, (c) => Object.keys(c.bad).length + Object.keys(c.warn).length);
+    $('ai-sum').textContent = `全部で${draft.length}件。` + (marks ? `色のついた欄が${marks}か所あります。` : '色のついた欄はありません。');
+    const b = $('ai-import'); b.disabled = !ok; b.textContent = ok ? `${ok}件を取り込む` : '取り込める行がありません';
+    $('ai-left').textContent = ng ? `${ng}件は日付・乗車の時刻・乗車地のどれかが足りないので、取り込まれません。直すか「この行を消す」で外してください。` : '';
+    $('ai-parse').textContent = draft.length ? '表を作り直す（直した内容は消えます）' : '表にして確かめる';
+  };
+  const renderDraft = () => {
+    $('ai-review').hidden = !draft.length;
+    const box = $('ai-rows'); box.replaceChildren();
+    draft.forEach((r, i) => {
+      const card = el('div', 'acard'), head = el('div', 'ahead'), g1 = el('div', 'agrid4'), g2 = el('div', 'agrid2'), hint = el('p', 'ahint');
+      const del = el('button', 'ghost', 'この行を消す'); del.type = 'button';
+      del.addEventListener('click', () => { draft.splice(i, 1); saveDraft(); renderDraft(); });
+      head.append(el('b', null, `${i + 1}件目`), del);
+      const inputs = {};
+      const upd = () => {
+        const c = checkRow(r);
+        for (const [k] of AF) { inputs[k].classList.toggle('bad', !!c.bad[k]); inputs[k].classList.toggle('warn', !c.bad[k] && !!c.warn[k]); inputs[k].setAttribute('aria-invalid', String(!!c.bad[k])); }
+        card.classList.toggle('bad', !c.ok);
+        hint.replaceChildren();
+        const msgs = Object.values(c.bad).concat(Object.values(c.warn));
+        if (msgs.length) hint.append(document.createTextNode(msgs.join('／')));
+        if (c.off.length) hint.append(el('span', 'm', `地図にない場所：${c.off.join('、')}（取り込めますが、地図とおすすめには出ません）`));
+        hint.hidden = !msgs.length && !c.off.length;
+      };
+      AF.forEach(([k, label, mode], n) => {
+        const lab = el('label', 'afield', label), inp = el('input');
+        inp.type = 'text'; inp.inputMode = mode; inp.value = r[k]; inp.autocomplete = 'off'; inp.autocapitalize = 'off'; inp.spellcheck = false;
+        inp.addEventListener('input', () => { r[k] = inp.value; upd(); saveDraft(); updSum(); });
+        inputs[k] = inp; lab.append(inp); (n < 4 ? g1 : g2).append(lab);
+      });
+      upd(); card.append(head, g1, g2, hint); box.append(card);
+    });
+    updSum();
+  };
+  const aiErr = (msg) => { const b = $('ai-err'); b.textContent = msg || ''; b.hidden = !msg; };
+  const aiReset = () => { draft = []; $('ai-text').value = ''; aiErr(''); renderDraft(); };
+  const openAI = () => {
+    ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = true; });
+    $('s-welcome').hidden = true; $('tabs').hidden = true; $('samplebar').hidden = true; document.body.classList.remove('mapmode');
+    $('s-ai').hidden = false; ses.set('navi-screen', 'ai');
+    if (!$('ai-text').value) $('ai-text').value = store.get('navi-ai-text') || '';
+    aiErr(''); renderDraft(); window.scrollTo({ top: 0 });
+  };
+  const closeAI = () => { ses.del('navi-screen'); $('s-ai').hidden = true; if (A) showApp(); else showWelcome(); };
+  $('open-ai').addEventListener('click', openAI);
+  $('open-ai2').addEventListener('click', openAI);
+  $('ai-back').addEventListener('click', closeAI);
+  $('ai-text').addEventListener('input', (e) => { store.set('navi-ai-text', e.target.value); aiErr(''); });
+  if (!(navigator.clipboard && navigator.clipboard.readText)) $('ai-paste').hidden = true;
+  $('ai-paste').addEventListener('click', async () => {
+    try { const t = await navigator.clipboard.readText(); if (!t.trim()) throw new Error('empty'); $('ai-text').value = t; store.set('navi-ai-text', t); aiErr(''); }
+    catch (e) { aiErr('貼り付けできませんでした。上の枠を長押しして「ペースト」を選んでください。'); }
+  });
+  $('ai-clear').addEventListener('click', () => { $('ai-text').value = ''; store.del('navi-ai-text'); aiErr(''); });
+  $('ai-parse').addEventListener('click', () => {
+    const text = $('ai-text').value;
+    if (!text.trim()) { aiErr('AIの返事を、上の枠に貼り付けてください。'); return; }
+    const rows = parsePasted(text);
+    if (!rows.length) { aiErr('表が見つかりませんでした。AIの返事を最後までコピーできているか確かめてください。文章で返ってきたときは、AIに「CSVだけで返して」ともう一度送ります。'); return; }
+    aiErr(''); draft = rows; saveDraft(); renderDraft();
+    $('ai-review').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  $('ai-addrow').addEventListener('click', () => { const last = draft[draft.length - 1]; draft.push({ d: last ? last.d : '', t: '', dt: '', pu: '', dp: '', km: '' }); saveDraft(); renderDraft(); });
+  $('ai-import').addEventListener('click', () => {
+    const cs = draft.map(checkRow);
+    const recs = draft.filter((r, i) => cs[i].ok).map((r) => { const k = nz(r.km); return { d: toDate(r.d), t: toMin(r.t), dt: toMin(r.dt), pu: r.pu.trim(), dp: r.dp.trim(), km: k === '' || isNaN(+k) ? null : +k }; });
+    if (!recs.length) return;
+    try { commit({ recs, bad: 0 }, 'add'); } catch (e) { aiErr(e.message); return; }
+    draft = draft.filter((r, i) => !cs[i].ok); saveDraft();
+    if (!draft.length) { $('ai-text').value = ''; store.del('navi-ai-text'); }
+    alertBox(`${recs.length}件を取り込みました。` + (draft.length ? `直していない${draft.length}件は「AIで読み取る」の画面に残してあります。` : ''));
+  });
+
+  // ===== 記録の提供（同意した人だけ） =====
+  // 送り先は config.js。collectUrl が空なら、この機能は画面に出さず、どこにも送らない
+  const CFG = Object.assign({ collectUrl: '', operator: '', contact: '', purpose: '' }, window.NAVI_CONFIG || {});
+  const SHARE_READY = /^https?:\/\//.test(CFG.collectUrl);
+  const CONSENT_VER = 1; // 同意画面の内容（送るもの・送り先・目的）を変えたら上げる。上げると全員もう一度同意が必要になる
+  let share = { on: false };
+  try { const o = JSON.parse(store.get('navi-share') || 'null'); if (o && typeof o === 'object') share = { on: o.on === true && o.v === CONSENT_VER, v: o.v, sid: typeof o.sid === 'string' ? o.sid : undefined, at: o.at, last: o.last }; } catch (e) {}
+  const saveShare = () => store.set('navi-share', JSON.stringify(share));
+  const newSid = () => { const a = new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a, (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join(''); };
+  // 送信済みの印：記録（日付・乗車時刻・乗車地）ごとの短い番号を端末に覚えておく
+  const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+  const recKey = (r) => fnv(`${r.d}|${r.t}|${nz(r.pu)}`);
+  const sentSet = new Set((store.get('navi-sent') || '').split(',').filter(Boolean));
+  const realRecs = () => { const c = store.get('navi-csv'); if (!c) return []; try { return toRecords(c).recs; } catch (e) { return []; } }; // サンプルは含めない
+  // 町名までに丸める。辞書にある町・駅だけを送り、それ以外（病院名・番地つきの書き方など）は空にする
+  const roundPlace = (raw) => {
+    const x = raw && GEO ? resolve(raw) : null;
+    if (!x || !x.ll) return ['', ''];
+    return x.type === '駅' ? ['駅', x.key] : [x.area, x.key.slice(x.area.length).replace(/\d+$/, '')];
+  };
+  const toRow = (r) => {
+    const [pa, pt] = roundPlace(r.pu), [da, dt] = roundPlace(r.dp);
+    const o = { d: r.d, wd: wdOf(r.d), h: Math.floor(r.t / 60), m: r.t % 60, pa, pt, da, dt };
+    if (r.dt != null) { o.dh = Math.floor(r.dt / 60); o.dm = r.dt % 60; }
+    if (r.km != null) o.km = r.km;
+    return o;
+  };
+  let sending = false, shareMsg = '';
+  const sendPending = async () => {
+    if (sending || !SHARE_READY || !share.on || !share.sid || !GEO) return;
+    const pend = realRecs().filter((r) => !sentSet.has(recKey(r)));
+    if (!pend.length) { renderShare(); return; }
+    sending = true; shareMsg = ''; renderShare();
+    try {
+      for (let i = 0; i < pend.length; i += 1000) {
+        if (!share.on) break; // 途中で「やめる」を押したら、そこで止める
+        const part = pend.slice(i, i + 1000), keys = part.map(recKey);
+        const res = await fetch(CFG.collectUrl, {
+          method: 'POST', credentials: 'omit', referrerPolicy: 'no-referrer',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Apps Script は text/plain なら事前確認（preflight）なしで受け取れる
+          body: JSON.stringify({ consent: true, v: CONSENT_VER, sid: share.sid, bid: fnv(keys.join(',')), rows: part.map(toRow) })
+        });
+        const j = await res.json();
+        if (!j || j.ok !== true) throw new Error(j && j.error === 'too_many_requests' ? 'busy' : 'ng');
+        keys.forEach((k) => sentSet.add(k)); store.set('navi-sent', [...sentSet].join(','));
+        const t = jstNow(); share.last = `${t.getFullYear()}/${p2(t.getMonth() + 1)}/${p2(t.getDate())}`; saveShare(); renderShare();
+      }
+    } catch (e) {
+      shareMsg = e.message === 'busy' ? '短い時間に何度も送ったため、受け付けられませんでした。10分ほどおいてから「いま送る」を押してください。' : '送れませんでした。通信できる場所で「いま送る」を押してください。記録は端末に残っています。';
+    }
+    sending = false; renderShare();
+  };
+  const renderShare = () => {
+    $('share-panel').hidden = !SHARE_READY;
+    if (!SHARE_READY) return;
+    const recs = realRecs(), done = recs.filter((r) => sentSet.has(recKey(r))).length, left = recs.length - done;
+    const st = !share.on ? '提供していません。記録はこの端末の中だけにあります。'
+      : sending ? `送っています…（送信済み ${fmt0(done)}件・残り ${fmt0(left)}件）`
+      : `提供中。送信済み ${fmt0(done)}件・まだ送っていない記録 ${fmt0(left)}件。` + (share.last ? `最後に送った日 ${share.last}。` : '');
+    $('share-status').textContent = st;
+    $('share-msg').textContent = shareMsg; $('share-msg').hidden = !shareMsg || !share.on;
+    $('share-open').textContent = share.on ? '送っている内容を見る' : '提供について読む';
+    $('share-send').hidden = !share.on || sending || !left;
+    $('share-stop').hidden = !share.on;
+    // くわしい画面
+    $('share-state').textContent = share.on ? `いまは「提供する」になっています（${String(share.at || '').slice(0, 10).replace(/-/g, '/')} に同意）。${st}` : 'いまは「提供しない」になっています。下の内容を読んで、送るかどうかを選んでください。';
+    $('share-purpose').textContent = CFG.purpose || '同意した運転手さんの記録を集めて、曜日・時間・場所ごとに客がつきやすい傾向を調べるため。';
+    $('share-who').textContent = CFG.operator || 'このアプリの運営者';
+    $('share-contact').textContent = CFG.contact ? `連絡先：${CFG.contact}` : '';
+    $('share-sid').textContent = share.sid ? `この端末の送信ID：${share.sid}` : '送信IDは、同意したときにこの端末で作ります。';
+    $('share-off-box').hidden = share.on; $('share-on-box').hidden = !share.on;
+    const tb = $('share-preview'); tb.replaceChildren();
+    const hm = (m) => `${Math.floor(m / 60)}:${p2(m % 60)}`, pl = (a, t) => a || t ? `${a} ${t}` : '（送らない）';
+    const ex = recs.slice(0, 3);
+    $('share-prev-note').textContent = !GEO ? '地図の辞書を読み込めていないため、いまは例を出せません（この状態では送りません）。' : ex.length ? 'あなたの記録の最初の3件が、どう送られるかの例です。上の段が端末の中の記録、下の段が送る内容です。' : '記録を読み込むと、実際に送る内容の例がここに出ます。';
+    if (GEO) ex.forEach((r) => {
+      const o = toRow(r), tr = el('tr'), td = el('td');
+      td.append(el('div', 'd', `端末の中：${r.d.replace(/-/g, '/')} ${hm(r.t)} ${r.pu} → ${r.dp || '（空欄）'}${r.km != null ? ` ${r.km}km` : ''}`));
+      td.append(el('div', null, `送る内容：${o.d} ${o.wd} ${o.h}:${p2(o.m)}${o.dh != null ? `〜${o.dh}:${p2(o.dm)}` : ''}／${pl(o.pa, o.pt)} → ${pl(o.da, o.dt)}${o.km != null ? `／${o.km}km` : ''}`));
+      tr.append(td); tb.append(tr);
+    });
+  };
+  const openShare = () => {
+    ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = true; });
+    $('s-welcome').hidden = true; $('s-ai').hidden = true; $('tabs').hidden = true; $('samplebar').hidden = true; document.body.classList.remove('mapmode');
+    $('share-agree').checked = false; $('share-yes').disabled = true;
+    $('s-share').hidden = false; renderShare(); window.scrollTo({ top: 0 });
+  };
+  const closeShare = () => { $('s-share').hidden = true; if (A) showApp(); else showWelcome(); };
+  const stopShare = () => { share.on = false; saveShare(); shareMsg = ''; renderShare(); alertBox('提供をやめました。これ以降は何も送りません。'); };
+  $('share-open').addEventListener('click', openShare);
+  $('share-back').addEventListener('click', closeShare);
+  $('share-no').addEventListener('click', closeShare);
+  $('share-agree').addEventListener('change', (e) => { $('share-yes').disabled = !e.target.checked; });
+  $('share-yes').addEventListener('click', () => {
+    if (!$('share-agree').checked || !SHARE_READY) return;
+    share = { on: true, v: CONSENT_VER, sid: share.sid || newSid(), at: new Date().toISOString(), last: share.last };
+    saveShare(); closeShare(); sendPending();
+  });
+  $('share-send').addEventListener('click', sendPending);
+  $('share-stop').addEventListener('click', stopShare);
+  $('share-stop2').addEventListener('click', () => { closeShare(); stopShare(); });
+
+  // ===== ホーム画面に追加 =====
+  const standalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  let installEvt = null;
+  const renderInstall = () => {
+    document.querySelectorAll('.installbox').forEach((box) => {
+      box.hidden = standalone();
+      if (box.hidden) return;
+      const sum = box.querySelector('summary'); box.replaceChildren(sum);
+      box.append(el('p', 'sub', 'ホーム画面に追加すると、アイコンから1回で開けて、電波のないところでも使えます（地図と住所の辞書を端末にためておきます）。'));
+      if (installEvt) {
+        const b = el('button', 'primary', 'ホーム画面に追加する'); b.type = 'button';
+        b.addEventListener('click', async () => { const ev = installEvt; installEvt = null; try { ev.prompt(); await ev.userChoice; } catch (e) {} renderInstall(); });
+        box.append(b);
+      }
+      const ol = el('ul', 'steps');
+      const li = (head, body) => { const x = el('li'); x.append(el('b', null, head), document.createTextNode(body)); return x; };
+      ol.append(
+        li('iPhone：', 'Safariでこのページを開く → 下の共有ボタン（四角から矢印が出ている印）→「ホーム画面に追加」。'),
+        li('Android：', 'Chromeでこのページを開く → 右上の「︙」→「ホーム画面に追加」または「アプリをインストール」。'));
+      box.append(ol);
+      box.append(el('div', 'err', '先にホーム画面に追加して、そのアイコンから開いてから記録を読み込んでください。iPhoneでは、ホーム画面のアプリとSafariとで記録の置き場所が別になります。また、Safariのままだと、長く開かないうちに記録が消えることがあります。'));
+    });
+  };
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderInstall(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; renderInstall(); });
+  renderInstall();
+
+  // サンプル（架空の記録）：実在の町・駅の名前だけを使い、日時と組み合わせは乱数で作る
+  const makeSample = () => {
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const spots = [['武蔵小杉駅', 6], ['中原区小杉町', 3], ['中原区新丸子東', 2], ['溝ノ口駅', 5], ['高津区久本', 2], ['新城駅', 3], ['中原区上小田中', 2], ['元住吉駅', 3], ['中原区木月', 2], ['高津区末長', 2], ['宮前区宮崎', 1], ['中原区井田', 1], ['幸区鹿島田', 1], ['日吉駅', 2], ['港北区日吉', 1]];
+    const tot = d3.sum(spots, (s) => s[1]);
+    const pick = (bias) => { let r = rnd() * tot; for (const s of spots) { r -= s[1] * (bias && /駅/.test(s[0]) ? 1.6 : 1); if (r <= 0) return s[0]; } return spots[0][0]; };
+    const lines = ['日付,乗車,降車,乗車地,降車地,営業km'];
+    const start = Date.UTC(2025, 8, 1);
+    for (let d = 0; d < 120; d++) {
+      if (rnd() < 0.45) continue;
+      const day = new Date(start + d * 86400000).toISOString().slice(0, 10).replace(/-/g, '/');
+      let t = 8 * 60 + Math.floor(rnd() * 40); let here = null;
+      while (t < 21 * 60) {
+        const pu = here && rnd() < 0.35 ? here : pick(t > 17 * 60);
+        const len = 1 + rnd() * rnd() * 14; const dur = Math.round(4 + len * 2.5);
+        const dp = pick(false); const km = Math.round(len * 10) / 10;
+        const f = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+        lines.push(`${day},${f(t)},${f(t + dur)},${pu}${/駅/.test(pu) ? '' : 1 + Math.floor(rnd() * 3)},${dp}${/駅/.test(dp) ? '' : 1 + Math.floor(rnd() * 3)},${km}`);
+        here = dp; t += dur + 5 + Math.floor(rnd() * rnd() * 50);
+      }
+    }
+    return lines.join('\n');
+  };
+  $('try-sample').addEventListener('click', () => { resolveCache.clear(); analyse(toRecords(makeSample()).recs); S.sample = true; showApp(); });
+
+  // 起動
+  fetch('minna.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.v === 1 && j.rides > 0 && j.drivers >= 3) { MINNA = j; renderAll(); } }).catch(() => {});
+  const wantAI = ses.get('navi-screen') === 'ai'; // AIアプリから戻ってきてページが読み直されたとき、同じ画面に戻す
+  fetch('geo.json').then((r) => { if (!r.ok) throw new Error('geo.json ' + r.status); return r.json(); }).then((g) => {
+    GEO = g;
+    const saved = store.get('navi-csv');
+    let shown = false;
+    if (saved) { try { analyse(toRecords(saved).recs); showApp(); shown = true; } catch (e) {} }
+    if (!shown) showWelcome();
+    if (wantAI) openAI();
+    sendPending();
+  }).catch(() => { showWelcome(); const e = $('load-err'); e.textContent = '地図・住所の辞書を読み込めませんでした。通信できる場所で開き直してください。'; e.hidden = false; });
+})();
+</script>
+<script>
+// オフラインでも開けるようにする（https か localhost のときだけ）
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+</script>
+
+</body>
+</html>
