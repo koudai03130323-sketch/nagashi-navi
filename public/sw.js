@@ -1,12 +1,18 @@
 // 流しナビ：オフラインでも開けるようにする Service Worker
 // 地図の画像（tiles/）や、外から読む部品（d3・SheetJS）の版を変えたら VERSION を上げる（古いキャッシュが消えて取り直す）。
 // index.html・config.js・geo.json は、開くたびに裏で新しいものを取りにいくので、VERSION を上げなくても次に開いたときに新しくなる。
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'nagashi-navi-' + VERSION;
 const SHELL = ['./', 'config.js', 'geo.json', 'minna.json', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 const D3 = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js';
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+// 新しい地図の部品（MapLibre）。版を変えたら index.html の ML_JS・ML_CSS と一緒に直し、VERSION を上げる
+const ML = ['https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js', 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css'];
+// 地図のデータ（OpenFreeMap）は、見たところだけ別の箱にためる。たまりすぎたら古いものから捨てる
+const MAPCACHE = 'nagashi-navi-map';
+const MAP_HOST = 'tiles.openfreemap.org';
+const MAP_MAX = 4000;
 
 // 外のサイトからは CORS つきで取る（中身の見えない返事をためると、端末の空き容量を大きく使った扱いになるため）
 const get = (url, sameOrigin) => fetch(url, sameOrigin ? { cache: 'no-cache' } : { mode: 'cors', credentials: 'omit' });
@@ -25,6 +31,8 @@ self.addEventListener('install', (e) => {
     await c.put(D3, d3);
     // Excelを読む部品は、取れなくてもアプリは動くので、失敗してもよい
     await get(SHEETJS, false).then((r) => keep(c, SHEETJS, r)).catch(() => {});
+    // 新しい地図の部品も、取れなくても古い地図で動くので、失敗してもよい
+    await Promise.all(ML.map((u) => get(u, false).then((r) => keep(c, u, r)).catch(() => {})));
     await self.skipWaiting();
   })());
 });
@@ -32,7 +40,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(names.filter((n) => n.startsWith('nagashi-navi-') && n !== CACHE).map((n) => caches.delete(n)));
+    await Promise.all(names.filter((n) => n.startsWith('nagashi-navi-') && n !== CACHE && n !== MAPCACHE).map((n) => caches.delete(n)));
     await self.clients.claim();
   })());
 });
@@ -47,6 +55,18 @@ const fresh = (e, url, sameOrigin) => caches.open(CACHE).then(async (c) => {
 // ためてあればそれを返す（中身の変わらないもの）
 const stored = (url, sameOrigin) => caches.open(CACHE).then(async (c) => (await c.match(url)) || get(url, sameOrigin).then((r) => keep(c, url, r)));
 
+// 地図のデータ：地図の目録（/planet）は裏で新しくし、図面・文字（版つきのURLで中身が変わらない）は、ためてあればそれを返す
+const mapData = (e, url) => caches.open(MAPCACHE).then(async (c) => {
+  const hit = await c.match(url.href);
+  const isIndex = /^\/(planet|styles\/[^/]+)\/?$/.test(url.pathname);
+  const net = get(url.href, false).then(async (r) => {
+    if (r.ok) { await c.put(url.href, r.clone()); const ks = await c.keys(); if (ks.length > MAP_MAX) await Promise.all(ks.slice(0, ks.length - MAP_MAX + 500).map((k) => c.delete(k))); }
+    return r;
+  });
+  if (hit) { if (isIndex) e.waitUntil(net.catch(() => {})); return hit; }
+  return net;
+});
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return; // 記録の送信（POST）には触らない
@@ -58,6 +78,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(fresh(e, url.href.split('?')[0], true));
     return;
   }
-  if (url.href === D3 || url.href === SHEETJS) { e.respondWith(stored(url.href, false)); return; }
+  if (url.href === D3 || url.href === SHEETJS || ML.includes(url.href)) { e.respondWith(stored(url.href, false)); return; }
+  if (url.hostname === MAP_HOST) { e.respondWith(mapData(e, url)); return; }
   if (FONT_HOSTS.includes(url.hostname)) { e.respondWith(fresh(e, url.href, false)); return; }
 });

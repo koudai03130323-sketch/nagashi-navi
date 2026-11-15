@@ -146,6 +146,24 @@ button:focus-visible, a:focus-visible, .card:focus-visible, .mcard:focus-visible
 .mcard .gmbtn { padding: 6px 9px; font-size: 11.5px; }
 .credit { position: absolute; right: 8px; bottom: 6px; font-size: 10px; color: var(--muted); background: color-mix(in srgb, var(--bg) 75%, transparent); padding: 2px 6px; border-radius: 6px; pointer-events: none; }
 #s-map .credit { bottom: auto; top: 8px; }
+/* 新しい地図（線で描く地図。明るい・すっきり） */
+.mapbox .maplibregl-map { position: absolute; inset: 0; font-family: var(--font); }
+.mapbox.ml { background: #f3f3f1; touch-action: auto; }
+.mlpin { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.mlpin b { width: 26px; height: 26px; border-radius: 50%; background: #1d2328; color: #fff; display: grid; place-items: center; font: 700 13px var(--num); border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.mlpin.r1 b { background: #f3b43c; color: #1a1405; }
+.mlpin.big b { width: 32px; height: 32px; font-size: 15px; }
+.mlpin span { font: 700 12px var(--font); color: #1d2328; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
+.mlorigin { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
+.mlorigin i { width: 16px; height: 16px; border-radius: 50%; background: #1f8a6a; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.mlorigin span { font: 700 11px var(--font); color: #1d2328; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.mllv { position: absolute; left: 8px; top: 8px; font-size: 10.5px; line-height: 1.4; background: rgba(255,255,255,.88); color: #3a3f46; padding: 4px 9px; border-radius: 10px; pointer-events: none; }
+.mllv b { color: #1d2328; }
+.mllv i { display: inline-block; width: 56px; height: 6px; border-radius: 3px; vertical-align: middle; margin: 0 4px; background: linear-gradient(90deg, #2c7f8f, #4fb39a, #a8d06a, #f2c14e, #f28c38); }
+.mapbox .maplibregl-ctrl-attrib { font-size: 9.5px; }
+.mapbox .maplibregl-ctrl-scale { background: rgba(255,255,255,.8); color: #3a3f46; border-color: #6b7078; font-size: 10px; }
+#s-map .mllv { top: auto; bottom: 200px; }
+#s-map .maplibregl-ctrl-bottom-left, #s-map .maplibregl-ctrl-bottom-right { bottom: 168px; }
 
 .heat svg, .months svg { width: 100%; height: auto; display: block; }
 .heat text, .months text { font-family: var(--font); font-size: 10.5px; fill: var(--muted); }
@@ -524,7 +542,7 @@ details.panel:not([open]) { padding-block: 8px; }
     </section>
     <details class="panel fold howto"><summary>使い方</summary></details>
     <details class="panel fold installbox" hidden><summary>ホーム画面に追加して、アプリのように使う</summary></details>
-    <p class="foot">地図：国土地理院（淡色地図）。住所の位置：Geolonia 住所データ。駅の位置：open-data-jp-railway-stations。位置は町・駅の代表地点で、おおよそです。</p>
+    <p class="foot">地図：OpenFreeMap © OpenMapTiles © OpenStreetMap（電波がないときは国土地理院の淡色地図）。住所の位置：Geolonia 住所データ。駅の位置：open-data-jp-railway-stations。位置は町・駅の代表地点で、おおよそです。</p>
   </main>
 </div>
 
@@ -884,7 +902,7 @@ details.panel:not([open]) { padding-block: 8px; }
       hero.append(alts);
       if (rawRows.length < 15) hero.append(el('div', 'why', 'この曜日・時間の記録が少ないため、前後の時間や似た曜日の記録も加えて順位を出しています。'));
     }
-    drawMap($('now-map'), $('now-map-info'), { points: countBy(rawRows), pins: list.slice(0, 5).map((p, i) => ({ key: p.key, rank: i + 1, desc: `目安${fmt2(p.score)}回/日・実績${p.raw}回` })), labelTop: 3, onFull: () => { S.mapScope = 'slot'; setTab('map'); } });
+    drawMap($('now-map'), $('now-map-info'), { rows: rawRows, pins: list.slice(0, 5).map((p, i) => ({ key: p.key, rank: i + 1, desc: `目安${fmt2(p.score)}回/日・実績${p.raw}回` })), labelTop: 3, onFull: () => { S.mapScope = 'slot'; setTab('map'); } });
     const box = $('now-list'); box.replaceChildren();
     if (!list.length) box.append(el('div', 'empty', 'この曜日・時刻の記録はありません'));
     const max = list.length ? list[0].score : 1;
@@ -975,7 +993,7 @@ details.panel:not([open]) { padding-block: 8px; }
   // ===== 地図（国土地理院の淡色地図をz13で敷く） =====
   const Z = 13, TS = 256;
   const wpx = (ll) => { const n = Math.pow(2, Z) * TS; const s = Math.sin(ll[0] * Math.PI / 180); return [(ll[1] + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n]; };
-  const drawMap = (box, info, opt) => {
+  const drawMapOld = (box, info, opt) => {
     const W = Math.max(280, box.clientWidth || 340), H = Math.max(240, box.clientHeight || 300);
     const T = GEO.tiles; const X0 = Math.min(...T.chunks.map((c) => c[0])) * TS, Y0 = Math.min(...T.chunks.map((c) => c[1])) * TS;
     const P = (k) => { const i = infoOf(k); if (!i.ll) return null; const [x, y] = wpx(i.ll); return [x - X0, y - Y0]; };
@@ -1036,13 +1054,131 @@ details.panel:not([open]) { padding-block: 8px; }
     return { focus: (k) => { const p = P(k); if (!p) return; svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2 - 40).scale(2).translate(-p[0], -p[1])); } };
   };
 
+  // ===== 新しい地図（MapLibre＋OpenFreeMap の線で描く地図）。読めないとき（電波なしで初めて開いた等）は上の古い地図に切り替える =====
+  const ML_JS = 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js', ML_JS_SRI = 'sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj';
+  const ML_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css', ML_CSS_SRI = 'sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V';
+  let mlP = null;
+  const loadML = () => mlP || (mlP = new Promise((ok, ng) => {
+    if (window.maplibregl) { ok(window.maplibregl); return; }
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = ML_CSS; l.integrity = ML_CSS_SRI; l.crossOrigin = 'anonymous'; document.head.append(l);
+    const sc = document.createElement('script'); sc.src = ML_JS; sc.integrity = ML_JS_SRI; sc.crossOrigin = 'anonymous';
+    sc.onload = () => (window.maplibregl ? ok(window.maplibregl) : ng(new Error('maplibre')));
+    sc.onerror = () => { mlP = null; ng(new Error('maplibre')); };
+    document.head.append(sc);
+  }));
+  const OMT = 'https://tiles.openfreemap.org/planet';
+  const ML_ATTR = '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+  const nameJa = ['coalesce', ['get', 'name:ja'], ['get', 'name']];
+  // 明るい・すっきり：陸・水・太い道・線路・町名と駅名だけ。小さな道と建物は寄ったときだけ薄く
+  const ML_STYLE = {
+    version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources: { omt: { type: 'vector', url: OMT, attribution: ML_ATTR } },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#f3f3f1' } },
+      { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park', paint: { 'fill-color': '#e6efe3' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#cfe0ec' } },
+      { id: 'river', type: 'line', source: 'omt', 'source-layer': 'waterway', paint: { 'line-color': '#cfe0ec', 'line-width': 1.2 } },
+      { id: 'bld', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 15, paint: { 'fill-color': '#e6e6e3' } },
+      { id: 'minor', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13, filter: ['in', ['get', 'class'], ['literal', ['minor', 'service', 'tertiary']]], paint: { 'line-color': '#e2e2df', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 17, 4] } },
+      { id: 'major', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', ['primary', 'secondary', 'trunk']]], paint: { 'line-color': '#cfcfcb', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 16, 6] } },
+      { id: 'motorway', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['==', ['get', 'class'], 'motorway'], paint: { 'line-color': '#bdbdb8', 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 16, 7] } },
+      { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['==', ['get', 'class'], 'rail'], paint: { 'line-color': '#c4c4c0', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.6, 16, 2.2], 'line-dasharray': [3, 2] } },
+      { id: 'place', type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: 10, filter: ['in', ['get', 'class'], ['literal', ['city', 'town', 'suburb', 'quarter', 'neighbourhood']]], layout: { 'text-field': nameJa, 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 15, 12] }, paint: { 'text-color': '#a3a8ae', 'text-halo-color': '#f3f3f1', 'text-halo-width': 1.2 } },
+      { id: 'station', type: 'symbol', source: 'omt', 'source-layer': 'poi', minzoom: 12, filter: ['==', ['get', 'class'], 'railway'], layout: { 'text-field': nameJa, 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 1.1] }, paint: { 'text-color': '#8a8f96', 'text-halo-color': '#f3f3f1', 'text-halo-width': 1.2 } }
+    ]
+  };
+  // 縮尺で数える単位を変える：引くと区・市、寄ると町、もっと寄ると丁目（駅はどの段でも駅ごと）
+  const ML_LEVELS = [
+    { id: 'area', min: 0, max: 11.5, label: '区・市ごと', r: [13, 30] },
+    { id: 'town', min: 11.5, max: 14, label: '町ごと', r: [9, 22] },
+    { id: 'chome', min: 14, max: 24, label: '丁目・駅ごと', r: [8, 18] }
+  ];
+  const ML_RAMP = ['#2c7f8f', '#4fb39a', '#a8d06a', '#f2c14e', '#f28c38'];
+  const mlLevels = (rows) => {
+    const agg = (f) => {
+      const m = new Map();
+      rows.forEach((x) => { const r = x.p && x.p.ll ? f(x.p) : null; if (!r) return; const e = m.get(r.k) || { name: r.name, n: 0, la: 0, lo: 0 }; e.n++; e.la += r.ll[0]; e.lo += r.ll[1]; m.set(r.k, e); });
+      return { type: 'FeatureCollection', features: [...m.values()].map((e) => ({ type: 'Feature', properties: { name: e.name, n: e.n }, geometry: { type: 'Point', coordinates: [e.lo / e.n, e.la / e.n] } })) };
+    };
+    const st = (p) => p.type === '駅';
+    const town = (p) => (st(p) ? p.key : p.key.slice(p.area.length));
+    return {
+      area: agg((p) => ({ k: st(p) ? p.key : p.area, name: st(p) ? p.key : p.area, ll: p.ll })),
+      town: agg((p) => ({ k: p.key, name: town(p), ll: p.ll })),
+      chome: agg((p) => (p.ch && p.pt ? { k: p.key + p.ch, name: `${town(p)}${p.ch}丁目`, ll: p.pt } : { k: p.key, name: town(p), ll: p.ll }))
+    };
+  };
+  const drawMap = (box, info, opt) => {
+    if (box._ml) { try { box._ml.remove(); } catch (e) {} box._ml = null; }
+    let map = null, queued = null;
+    const api = { focus: (k) => { if (map) go(k); else queued = k; } };
+    const ll = (k) => { const i = infoOf(k); return i.ll ? [i.ll[1], i.ll[0]] : null; };
+    const go = (k) => { const c = ll(k); if (c) map.flyTo({ center: c, zoom: Math.max(map.getZoom(), 14.5), duration: 500, offset: opt.fill ? [0, -60] : [0, 0] }); };
+    box.replaceChildren(el('div', 'maphint', '地図を読み込んでいます…'));
+    loadML().then((ML) => {
+      box.replaceChildren(); box.classList.add('ml');
+      const pins = (opt.pins || []).filter((p) => ll(p.key));
+      const org = opt.origin && ll(opt.origin) ? ll(opt.origin) : null;
+      const rows = opt.rows || [];
+      map = new ML.Map({ container: box, style: ML_STYLE, center: [139.6, 35.59], zoom: 11, minZoom: 8, maxZoom: 17.5, attributionControl: { compact: true }, cooperativeGestures: !opt.fill, dragRotate: false, pitchWithRotate: false });
+      map.touchZoomRotate.disableRotation();
+      box._ml = map;
+      if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (box._ml === map) map.resize(); else ro.disconnect(); }); ro.observe(box); } // 隠れた画面で作ったときも、見えたら大きさを合わせる
+      map.addControl(new ML.ScaleControl({ unit: 'metric' }), 'bottom-left');
+      // はじめに見せる範囲：おすすめのピンと降ろした場所。なければ回数の多い町
+      const pts = [...pins.map((p) => ll(p.key)), ...(org ? [org] : [])];
+      if (!pts.length) { const t = mlLevels(rows).town.features.sort((a, b) => b.properties.n - a.properties.n).slice(0, 12); t.forEach((f) => pts.push(f.geometry.coordinates)); }
+      if (pts.length) {
+        const b = new ML.LngLatBounds(pts[0], pts[0]); pts.forEach((c) => b.extend(c));
+        const pad = opt.fill ? { left: 40, top: 110, right: 40, bottom: 170 } : { left: 30, top: 40, right: 30, bottom: 30 };
+        map.fitBounds(b, { padding: pad, maxZoom: 14.2, animate: false });
+      }
+      const lv = el('div', 'mllv'); box.append(lv);
+      const showLv = () => { const z = map.getZoom(); const L = ML_LEVELS.find((l) => z >= l.min && z < l.max) || ML_LEVELS[1]; lv.replaceChildren(rows.length ? el('b', null, L.label) : el('b', null, ''), document.createTextNode(rows.length ? 'の乗車回数' : ''), ...(rows.length ? [document.createElement('br'), document.createTextNode('少'), el('i'), document.createTextNode('多')] : [])); lv.hidden = !rows.length; };
+      map.on('zoom', showLv); showLv();
+      map.on('load', () => {
+        if (rows.length) {
+          const D = mlLevels(rows);
+          ML_LEVELS.forEach((L) => {
+            const fc = D[L.id]; if (!fc.features.length) return;
+            const mx = Math.max(...fc.features.map((f) => f.properties.n));
+            const q = ['/', ['ln', ['+', 1, ['get', 'n']]], Math.log(1 + mx)]; // 回数の差が大きいので、対数でならす
+            const color = ['interpolate', ['linear'], q, 0, ML_RAMP[0], 0.25, ML_RAMP[1], 0.5, ML_RAMP[2], 0.75, ML_RAMP[3], 1, ML_RAMP[4]];
+            map.addSource(L.id, { type: 'geojson', data: fc });
+            map.addLayer({ id: L.id + '-c', type: 'circle', source: L.id, minzoom: L.min, maxzoom: L.max, paint: { 'circle-radius': ['interpolate', ['linear'], q, 0, L.r[0], 1, L.r[1]], 'circle-color': color, 'circle-opacity': 0.5, 'circle-stroke-color': color, 'circle-stroke-width': 1, 'circle-stroke-opacity': 0.85 } });
+            map.addLayer({ id: L.id + '-t', type: 'symbol', source: L.id, minzoom: L.min, maxzoom: L.max, layout: { 'text-field': ['format', ['to-string', ['get', 'n']], { 'font-scale': 1 }, '\n', {}, ['get', 'name'], { 'font-scale': 0.78 }], 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], q, 0, 10, 1, 14], 'text-line-height': 1.1, 'text-offset': [0, 0.55], 'text-allow-overlap': false, 'symbol-sort-key': ['-', 0, ['get', 'n']] }, paint: { 'text-color': '#1d2328', 'text-opacity': 0.72, 'text-halo-color': 'rgba(255,255,255,.6)', 'text-halo-width': 1 } });
+            map.on('click', L.id + '-c', (e) => { const f = e.features[0]; if (info) info.replaceChildren(el('b', null, f.properties.name), document.createTextNode(` ${fmt0(f.properties.n)}回`)); else new ML.Popup({ closeButton: false }).setLngLat(f.geometry.coordinates).setHTML(`<b style="color:#1d2328">${f.properties.name}</b><div style="color:#3a3f46">${fmt0(f.properties.n)}回</div>`).addTo(map); });
+          });
+        }
+        if (org && pins.length) {
+          map.addSource('flow', { type: 'geojson', data: { type: 'FeatureCollection', features: pins.map((p) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [org, ll(p.key)] } })) } });
+          map.addLayer({ id: 'flow', type: 'line', source: 'flow', paint: { 'line-color': '#c98a12', 'line-width': 2.5, 'line-opacity': 0.8, 'line-dasharray': [1, 2.5] }, layout: { 'line-cap': 'round' } });
+        }
+        if (queued) { go(queued); queued = null; }
+      });
+      if (org) { const o = el('div', 'mlorigin'); o.append(el('i'), el('span', null, '降ろした場所')); new ML.Marker({ element: o }).setLngLat(org).addTo(map); }
+      pins.slice().reverse().forEach((p) => {
+        const m = el('div', 'mlpin' + (p.rank === 1 ? ' r1' : '') + (opt.fill ? ' big' : '')); m.append(el('b', null, p.rank));
+        if (p.rank <= (opt.labelTop || 3)) m.append(el('span', null, short(p.key)));
+        m.onclick = (e) => { e.stopPropagation(); if (opt.onPin) opt.onPin(p); if (info) info.replaceChildren(el('b', null, `${p.rank}. ${p.key}`), document.createTextNode(` ${p.desc || ''}`)); };
+        new ML.Marker({ element: m, anchor: 'left', offset: [-15, 0] }).setLngLat(ll(p.key)).addTo(map);
+      });
+      if (opt.onFull) { const fb = el('button', 'mapfull', '⤢ 全画面'); fb.type = 'button'; fb.onclick = opt.onFull; box.append(fb); }
+    }).catch(() => {
+      box.classList.remove('ml');
+      const old = drawMapOld(box, info, { ...opt, points: opt.rows ? countBy(opt.rows) : opt.points });
+      api.focus = old.focus; if (queued) old.focus(queued);
+    });
+    return api;
+  };
+
   const renderMap = () => {
     document.querySelectorAll('#map-scope .chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === S.mapScope)));
     const sheet = $('map-sheet'); let pins = [], opt = {};
     if (S.mapScope === 'slot') {
       $('map-title').textContent = `${S.wd}曜 ${S.h}時台から2時間・客がつきやすい場所`;
       pins = nowModel(A, S.wd, S.h).slice(0, 8).map((p, i) => ({ key: p.key, rank: i + 1, main: `${fmt2(p.score)}回/日`, desc: `実績${p.raw}回・平均${fmt1(p.avg)}km` }));
-      opt = { points: countBy(A.R.filter((x) => x.wd === S.wd && (x.h === S.h || x.h === S.h + 1))) };
+      opt = { rows: A.R.filter((x) => x.wd === S.wd && (x.h === S.h || x.h === S.h + 1)) };
     } else if (S.mapScope === 'after') {
       if (!S.dropPlace) renderAfter();
       $('map-title').textContent = `${S.dropPlace || '—'}で降ろしたあと・次の客の場所`;
@@ -1053,7 +1189,7 @@ details.panel:not([open]) { padding-block: 8px; }
       $('map-title').textContent = '全期間・乗せた場所';
       const c = countBy(A.R).sort((a, b) => b.n - a.n);
       pins = c.slice(0, 10).map((p, i) => ({ key: p.key, rank: i + 1, main: `${fmt0(p.n)}回`, desc: subOf(p.key) }));
-      opt = { points: c };
+      opt = { rows: A.R };
     }
     const mark = (k) => sheet.querySelectorAll('.mcard').forEach((c) => c.setAttribute('aria-current', String(c.dataset.k === k)));
     const api = drawMap($('map'), null, { ...opt, fill: true, pins, labelTop: 6, pinR: 16, fontSize: 14, onPin: (p) => { mark(p.key); const c = [...sheet.children].find((x) => x.dataset.k === p.key); if (c) c.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } });

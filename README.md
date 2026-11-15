@@ -56,4 +56,4 @@ python3 -m http.server 8000
 - 集めたシートは誰とも共有しない。共有するなら、同意画面にそのことを書く。
 
 ## 出典
-地図：国土地理院（淡色地図）／住所の位置：Geolonia 住所データ／駅の位置：open-data-jp-railway-stations
+地図：OpenFreeMap © OpenMapTiles © OpenStreetMap、国土地理院（淡色地図）／住所の位置：Geolonia 住所データ／駅の位置：open-data-jp-railway-stations
