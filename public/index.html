@@ -249,7 +249,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <button class="ghost wide" type="button" id="try-sample">サンプルで試す</button>
     </div>
     <div class="err" id="load-err" hidden></div>
-    <p class="sub">読み込んだ記録は、この端末の中だけに保存されます。自分で「記録の提供」に同意しない限り、どこにも送られません。</p>
+    <p class="sub">このアプリは、記録の提供に同意した人が使えます。送るのは町名までに丸めた記録だけで、ほかの運転手さんの記録がこのアプリで見えることはありません。</p>
     <details class="panel fold howto"><summary>使い方（はじめての人へ）</summary></details>
     <details class="panel fold">
       <summary>記録の形（ExcelやCSVの並べ方）</summary>
@@ -351,8 +351,8 @@ details.panel:not([open]) { padding-block: 8px; }
   <!-- 記録の提供（同意した人だけ。町名までに丸めて運営者に送る） -->
   <section class="welcome" id="s-share" aria-label="記録の提供について" hidden>
     <div class="row2"><h2>記録の提供について</h2><button class="ghost" type="button" id="share-back">もどる</button></div>
-    <div class="note" id="share-first" hidden><b>はじめに1つだけ選んでください。</b>流しナビでは、運転手さんの記録を持ち寄って、全体の傾向を調べています。協力するかどうかを、下を読んで選んでください。あとから記録の画面でいつでも変えられます。</div>
-    <p class="sub">同意した運転手さんの記録を集めて、全体の傾向を調べる取り組みです。<b>送らなくても、このアプリはこれまでどおり全部使えます。</b>ほかの運転手さんの記録が、このアプリで見えることはありません。</p>
+    <div class="note" id="share-first" hidden><b>流しナビは、記録の提供に同意した人だけが使えるアプリです。</b>運転手さんの記録を持ち寄って、全体の傾向を調べています。下を読んで、同意する場合だけ使ってください。</div>
+    <p class="sub">同意した運転手さんの記録を集めて、全体の傾向を調べる取り組みです。<b>同意しない場合は、このアプリは使えません。</b>ほかの運転手さんの記録が、このアプリで見えることはありません。</p>
     <div class="note" id="share-state"></div>
 
     <section class="panel">
@@ -389,7 +389,7 @@ details.panel:not([open]) { padding-block: 8px; }
     <section class="panel">
       <h2>やめるとき・消したいとき</h2>
       <ul class="steps">
-        <li>記録の画面の「提供をやめる」を押すと、それ以降は何も送りません。</li>
+        <li>記録の画面の「提供をやめる」を押すと、それ以降は何も送りません。そのかわり、このアプリは使えなくなります（端末の中の記録は消えません。もう一度同意すれば、また使えます）。</li>
         <li>すでに送った記録は、このアプリからは消せません。消してほしいときは、下の送信IDを運営者に伝えてください。<span id="share-contact"></span></li>
         <li>同意すると、いま端末にある記録と、これから読み込む記録（ファイル・AIで読み取った表のどちらも）を自動で送ります。</li>
       </ul>
@@ -398,8 +398,9 @@ details.panel:not([open]) { padding-block: 8px; }
 
     <div class="sec" id="share-off-box">
       <label class="check"><input type="checkbox" id="share-agree"><span>上の内容を読みました。会社のルールも確認しました。</span></label>
-      <button class="primary" type="button" id="share-yes" disabled>同意して送る</button>
-      <button class="ghost wide" type="button" id="share-no">送らない</button>
+      <button class="primary" type="button" id="share-yes" disabled>同意して使う</button>
+      <button class="ghost wide" type="button" id="share-no">同意しない</button>
+      <div class="err" id="share-locked" hidden>同意しない場合、このアプリは使えません。使わないときは、このまま閉じてください。端末の中の記録は、どこにも送られません。</div>
     </div>
     <div class="sec" id="share-on-box" hidden>
       <button class="danger" type="button" id="share-stop2" style="padding:13px 14px;font-size:14px;border-radius:14px">提供をやめる</button>
@@ -1334,7 +1335,7 @@ details.panel:not([open]) { padding-block: 8px; }
   // 送り先は config.js。collectUrl が空なら、この機能は画面に出さず、どこにも送らない
   const CFG = Object.assign({ collectUrl: '', operator: '', contact: '', purpose: '' }, window.NAVI_CONFIG || {});
   const SHARE_READY = /^https?:\/\//.test(CFG.collectUrl);
-  const CONSENT_VER = 1; // 同意画面の内容（送るもの・送り先・目的）を変えたら上げる。上げると全員もう一度同意が必要になる
+  const CONSENT_VER = 2; // 同意画面の内容（送るもの・送り先・目的）を変えたら上げる。上げると全員もう一度同意が必要になる
   let share = { on: false };
   try { const o = JSON.parse(store.get('navi-share') || 'null'); if (o && typeof o === 'object') share = { on: o.on === true && o.v === CONSENT_VER, v: o.v, sid: typeof o.sid === 'string' ? o.sid : undefined, at: o.at, last: o.last }; } catch (e) {}
   const saveShare = () => store.set('navi-share', JSON.stringify(share));
@@ -1412,18 +1413,20 @@ details.panel:not([open]) { padding-block: 8px; }
       tr.append(td); tb.append(tr);
     });
   };
+  const LOCKED = () => SHARE_READY && !share.on; // 同意していないあいだは、提供の画面のほかは使えない
   const openShare = (first) => {
-    $('share-first').hidden = first !== true;
+    $('share-first').hidden = !LOCKED() && first !== true;
+    $('share-back').hidden = LOCKED(); $('share-locked').hidden = true;
     ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = true; });
     $('s-welcome').hidden = true; $('s-ai').hidden = true; $('tabs').hidden = true; $('samplebar').hidden = true; document.body.classList.remove('mapmode');
     $('share-agree').checked = false; $('share-yes').disabled = true;
     $('s-share').hidden = false; renderShare(); window.scrollTo({ top: 0 });
   };
-  const closeShare = () => { $('s-share').hidden = true; if (A) showApp(); else showWelcome(); };
-  const stopShare = () => { share.on = false; saveShare(); shareMsg = ''; renderShare(); alertBox('提供をやめました。これ以降は何も送りません。'); };
+  const closeShare = () => { if (LOCKED()) { openShare(); return; } $('s-share').hidden = true; if (A) showApp(); else showWelcome(); };
+  const stopShare = () => { share.on = false; saveShare(); shareMsg = ''; renderShare(); openShare(); };
   $('share-open').addEventListener('click', () => openShare());
   $('share-back').addEventListener('click', closeShare);
-  $('share-no').addEventListener('click', closeShare);
+  $('share-no').addEventListener('click', () => { if (LOCKED()) { $('share-locked').hidden = false; $('share-locked').scrollIntoView({ block: 'center' }); } else closeShare(); });
   $('share-agree').addEventListener('change', (e) => { $('share-yes').disabled = !e.target.checked; });
   $('share-yes').addEventListener('click', () => {
     if (!$('share-agree').checked || !SHARE_READY) return;
@@ -1432,7 +1435,7 @@ details.panel:not([open]) { padding-block: 8px; }
   });
   $('share-send').addEventListener('click', sendPending);
   $('share-stop').addEventListener('click', stopShare);
-  $('share-stop2').addEventListener('click', () => { closeShare(); stopShare(); });
+  $('share-stop2').addEventListener('click', stopShare);
 
   // ===== ホーム画面に追加 =====
   const standalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -1487,7 +1490,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <li><b>記録：</b>入れた記録の件数、記録の追加・入れ替え・消去、記録の提供。</li>
     </ul>
     <p class="sub"><b>④ 記録の提供</b></p>
-    <p class="sub">はじめて開いたときに1回だけ、記録を提供するかを聞きます。送らなくても、アプリは全部使えます。送るのは町名までに丸めた記録だけで、記録の画面からいつでもやめられます。</p>
+    <p class="sub">このアプリは、記録の提供に同意した人が使えます。はじめて開いたときに同意の画面が出ます。送るのは町名までに丸めた記録だけです。記録の画面から提供をやめることもできますが、そのときはアプリが使えなくなります。</p>
     <p class="sub"><b>⑤ うまくいかないとき</b></p>
     <ul class="steps">
       <li><b>ファイルが灰色で選べない：</b>Googleスプレッドシートのリンクです。②のコピー＆貼り付けで入れます。</li>
@@ -1530,9 +1533,9 @@ details.panel:not([open]) { padding-block: 8px; }
     let shown = false;
     if (saved) { try { analyse(toRecords(saved).recs); showApp(); shown = true; } catch (e) {} }
     if (!shown) showWelcome();
-    if (wantAI) openAI();
-    // 記録の提供：はじめて開いたときに1回だけ、同意の画面を出す（選ぶのは本人。「送らない」でもアプリは全部使える）
-    else if (SHARE_READY && !share.on && !store.get('navi-share-asked')) { store.set('navi-share-asked', '1'); openShare(true); }
+    // 記録の提供：同意していないあいだは、同意の画面だけを出す（運営者の方針で、同意した人だけが使えるアプリにしている）
+    if (LOCKED()) openShare(true);
+    else if (wantAI) openAI();
     sendPending();
   }).catch(() => { showWelcome(); const e = $('load-err'); e.textContent = '地図・住所の辞書を読み込めませんでした。通信できる場所で開き直してください。'; e.hidden = false; });
 })();
