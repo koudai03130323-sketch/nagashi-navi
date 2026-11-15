@@ -242,14 +242,15 @@ details.panel:not([open]) { padding-block: 8px; }
     <label class="drop" id="drop">
       <input type="file" id="file" accept=".csv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
       <span class="primary">記録のファイルを選ぶ</span>
-      <span class="sub">運行の記録（1乗車1行）のExcel（.xlsx）かCSVを選んでください。Googleスプレッドシートは「ファイル→ダウンロード」で .xlsx か .csv にしてから選びます。</span>
+      <span class="sub">運行の記録（1乗車1行）のExcel（.xlsx）かCSVを選んでください。Googleスプレッドシートは、下の「使い方」の②を見てください。</span>
     </label>
     <div class="btnrow">
       <button class="ghost wide" type="button" id="open-ai">日報の写真から読み取る</button>
       <button class="ghost wide" type="button" id="try-sample">サンプルで試す</button>
     </div>
     <div class="err" id="load-err" hidden></div>
-    <p class="sub">読み込んだ記録は、この端末の中だけに保存されます。ほかの人やサーバーには送られません。</p>
+    <p class="sub">読み込んだ記録は、この端末の中だけに保存されます。自分で「記録の提供」に同意しない限り、どこにも送られません。</p>
+    <details class="panel fold howto"><summary>使い方（はじめての人へ）</summary></details>
     <details class="panel fold">
       <summary>記録の形（ExcelやCSVの並べ方）</summary>
       <p class="sub">見出しの行の下に、1乗車ずつ1行。ExcelでもCSVでも同じ並びです。曜日の列はなくても大丈夫です（日付から出します）。</p>
@@ -513,6 +514,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <div class="err" id="clear-confirm" hidden>この端末に保存した記録を消します。もう一度押すと消します。</div>
       <p class="sub" id="unmatched"></p>
     </section>
+    <details class="panel fold howto"><summary>使い方</summary></details>
     <details class="panel fold installbox" hidden><summary>ホーム画面に追加して、アプリのように使う</summary></details>
     <p class="foot">地図：国土地理院（淡色地図）。住所の位置：Geolonia 住所データ。駅の位置：open-data-jp-railway-stations。位置は町・駅の代表地点で、おおよそです。</p>
   </main>
@@ -1448,6 +1450,41 @@ details.panel:not([open]) { padding-block: 8px; }
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderInstall(); });
   window.addEventListener('appinstalled', () => { installEvt = null; renderInstall(); });
   renderInstall();
+
+  // ===== 使い方（はじめの画面と記録の画面の「使い方」。中身は決まった文だけ） =====
+  const HOWTO = `
+    <p class="sub"><b>① ホーム画面に入れる（最初に1回）</b></p>
+    <ol class="steps">
+      <li>iPhone は <b>Safari</b> でこのページを開く（LINE や Chrome の中では入れられません）。</li>
+      <li>右下かアドレス欄の横の「⋯」→「共有」（下に共有ボタン＝四角から矢印の印があれば、それ）を押す。</li>
+      <li>メニューを下まで動かして「ホーム画面に追加」→「追加」。見つからないときは、いちばん下の「アクションを編集」から足せます。</li>
+      <li>これからは、ホーム画面のアイコンから開きます。Safari で入れた記録は、アイコンのほうには引き継がれません。</li>
+      <li>Android は Chrome の「︙」→「ホーム画面に追加」。</li>
+    </ol>
+    <p class="sub"><b>② 記録を入れる</b>（どれか1つ）</p>
+    <ul class="steps">
+      <li><b>Excel・CSV のファイル：</b>「記録のファイルを選ぶ」→ 左上の「ブラウズ」→ iCloud Drive や Google ドライブから選ぶ。</li>
+      <li><b>Googleスプレッドシート：</b>緑のアイコン（.gsheet）は中身のないリンクなので、灰色で選べません。スプレッドシートのアプリで表の左上の角（Aの左・1の上）をタップ →「コピー」→ このアプリの「日報の写真から読み取る」→「コピーしたものを貼り付ける」→「表にして確かめる」→「取り込む」。ファイルにしたいときは「⋯」→「共有とエクスポート」→「コピーを送信」→「Microsoft Excel」→「"ファイル"に保存」。</li>
+      <li><b>Numbers：</b>「⋯」→「書き出し」→「Excel」→「"ファイル"に保存」して、そのファイルを選ぶ。</li>
+      <li><b>紙の日報：</b>「日報の写真から読み取る」→「指示文をコピー」→ 自分の ChatGPT か Claude のアプリに、日報の写真と指示文を送る → 返ってきた表をコピー →「コピーしたものを貼り付ける」→「表にして確かめる」→ 写真と見比べて「取り込む」。</li>
+    </ul>
+    <p class="sub">日報が増えたら、同じやり方で足します。前に入れた記録と重なった行は、自動で1つにまとめます。</p>
+    <p class="sub"><b>③ 画面の見方</b></p>
+    <ul class="steps">
+      <li><b>いま：</b>今の曜日・時間に、客がつきやすい場所の順位。</li>
+      <li><b>降ろしたあと：</b>降ろした町・駅を選ぶと、次にどこで拾えたかと、空車の時間。</li>
+      <li><b>地図：</b>おすすめの場所を地図で。カードを押すと、その場所に移ります。</li>
+      <li><b>記録：</b>入れた記録の件数、記録の追加・入れ替え・消去、記録の提供。</li>
+    </ul>
+    <p class="sub"><b>④ 記録の提供</b></p>
+    <p class="sub">はじめて記録を入れたときに1回だけ、記録を提供するかを聞きます。送らなくても、アプリは全部使えます。送るのは町名までに丸めた記録だけで、記録の画面からいつでもやめられます。</p>
+    <p class="sub"><b>⑤ うまくいかないとき</b></p>
+    <ul class="steps">
+      <li><b>ファイルが灰色で選べない：</b>Googleスプレッドシートのリンクです。②のコピー＆貼り付けで入れます。</li>
+      <li><b>入れたはずの記録が出ない：</b>Safari とホーム画面のアイコンで、別々に開いていないか確かめます。</li>
+      <li><b>赤い文字が出た：</b>見出しの名前（日付・乗車・降車・乗車地・降車地・営業km）がそろっているか確かめます。下の「記録の形」に例があります。</li>
+    </ul>`;
+  document.querySelectorAll('.howto').forEach((box) => { box.insertAdjacentHTML('beforeend', HOWTO); });
 
   // サンプル（架空の記録）：実在の町・駅の名前だけを使い、日時と組み合わせは乱数で作る
   const makeSample = () => {
