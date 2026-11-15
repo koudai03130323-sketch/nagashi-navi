@@ -40,6 +40,8 @@
 ## いまの状態（試作品）
 `public/index.html` は claude.ai のアーティファクトとして公開していたページを、単体のHTMLに直したもの。`python3 -m http.server` で単体の動作を確認済み（サンプルでの4画面、地図画像、保存した記録の読み直し）。GitHub Pages 上での確認はまだ（リポジトリを作って push してから）。`fetch('geo.json')` を使うので file:// では動かない。
 
+検索に出さない：`index.html` に `<meta name="robots" content="noindex,nofollow,noarchive">`（Pages の robots.txt はサイトの根にしか置けないので、meta で止める）。URLを知っている人は使える。
+
 公開は `.github/workflows/pages.yml`（`main` に push すると `public/` をそのまま Pages に出す）。`public/` の中のパスはすべて相対にしておくこと（`https://<ユーザー名>.github.io/<リポジトリ名>/` の下で動かすため）。
 
 できていること:
