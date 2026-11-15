@@ -12,7 +12,8 @@
  *  ※ このファイルを直したら、デプロイ → デプロイを管理 → 編集 → バージョン「新バージョン」で出し直す（URLは変わらない）
  *
  * アプリが送ってくる形（Content-Type は text/plain。中身はJSON）:
- *  { consent: true, v: 同意文の版, sid: 送信ID, bid: かたまりの印, rows: [{ d, wd, h, m, dh, dm, pa, pt, da, dt, km }, ...] }
+ *  { consent: true, v: 同意文の版, sid: 送信ID, bid: かたまりの印, rows: [{ d, wd, h, m, dh, dm, pa, pt, pc, da, dt, dc, km }, ...] }
+ *  pc・dc は丁目の数字（同意文の版3から）。古い版のアプリからは来ないので、空欄になる。
  *
  * まだ未実装: 集計シートの作成。
  */
@@ -20,7 +21,7 @@
 const SHEET_NAME = 'records';
 const MAX_ROWS_PER_POST = 2000;
 const MAX_POSTS_PER_10MIN = 12; // 同じ送信IDから10分に受け付ける回数（アプリは1000行ずつに分けて送る）
-const HEADER = ['受信日時', '送信ID', '日付', '曜日', '乗車時', '乗車分', '降車時', '降車分', '乗車エリア', '乗車町', '降車エリア', '降車町', '営業km'];
+const HEADER = ['受信日時', '送信ID', '日付', '曜日', '乗車時', '乗車分', '降車時', '降車分', '乗車エリア', '乗車町', '降車エリア', '降車町', '営業km', '乗車丁目', '降車丁目'];
 
 function doGet() {
   return ContentService.createTextOutput('ok');
@@ -47,11 +48,12 @@ function doPost(e) {
     const now = new Date();
     const clean = [];
     for (const r of body.rows) {
-      // アプリ側で町名までに丸めたものだけを受け付ける（丁目の番号や番地は入れない）
+      // アプリ側で、辞書にある町・丁目・駅にそろえたものだけを受け付ける（番地は入れない。町名の欄に数字が付いてきたら外す）
       if (!/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
       const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
       const n = (v, lo, hi) => (typeof v === 'number' && v >= lo && v <= hi ? v : '');
-      clean.push([now, body.sid, r.d, s(r.wd, 1), n(r.h, 0, 30), n(r.m, 0, 59), n(r.dh, 0, 30), n(r.dm, 0, 59), s(r.pa, 20), s(r.pt, 40).replace(/\d+$/, ''), s(r.da, 20), s(r.dt, 40).replace(/\d+$/, ''), n(r.km, 0, 300)]);
+      const c = (v) => (typeof v === 'string' && /^\d{1,2}$/.test(v) ? v : '');
+      clean.push([now, body.sid, r.d, s(r.wd, 1), n(r.h, 0, 30), n(r.m, 0, 59), n(r.dh, 0, 30), n(r.dm, 0, 59), s(r.pa, 20), s(r.pt, 40).replace(/\d+$/, ''), s(r.da, 20), s(r.dt, 40).replace(/\d+$/, ''), n(r.km, 0, 300), c(r.pc), c(r.dc)]);
     }
     if (!clean.length) return out({ ok: false, error: 'no_valid_rows' });
 
@@ -62,6 +64,7 @@ function doPost(e) {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
       if (sh.getLastRow() === 0) sh.appendRow(HEADER);
+      else if (sh.getLastColumn() < HEADER.length) sh.getRange(1, 1, 1, HEADER.length).setValues([HEADER]); // 列を足したときは見出しも足す
       sh.getRange(sh.getLastRow() + 1, 1, clean.length, HEADER.length).setValues(clean);
     } finally {
       lock.releaseLock();

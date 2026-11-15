@@ -251,7 +251,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <button class="ghost wide" type="button" id="try-sample">サンプルで試す</button>
     </div>
     <div class="err" id="load-err" hidden></div>
-    <p class="sub">このアプリは、記録の提供に同意した人が使えます。送るのは町名までに丸めた記録だけで、ほかの運転手さんの記録がこのアプリで見えることはありません。</p>
+    <p class="sub">このアプリは、記録の提供に同意した人が使えます。送るのは丁目までにそろえた記録だけ（番地・病院名などは送りません）で、ほかの運転手さんの記録がこのアプリで見えることはありません。</p>
     <details class="panel fold howto"><summary>使い方（はじめての人へ）</summary></details>
     <details class="panel fold">
       <summary>記録の形（ExcelやCSVの並べ方）</summary>
@@ -350,7 +350,7 @@ details.panel:not([open]) { padding-block: 8px; }
     </details>
   </section>
 
-  <!-- 記録の提供（同意した人だけ。町名までに丸めて運営者に送る） -->
+  <!-- 記録の提供（同意した人だけ。丁目までにそろえて運営者に送る） -->
   <section class="welcome" id="s-share" aria-label="記録の提供について" hidden>
     <div class="row2"><h2>記録の提供について</h2><button class="ghost" type="button" id="share-back">もどる</button></div>
     <div class="note" id="share-first" hidden><b>流しナビは、記録の提供に同意した人だけが使えるアプリです。</b>運転手さんの記録を持ち寄って、全体の傾向を調べています。下を読んで、同意する場合だけ使ってください。</div>
@@ -369,7 +369,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <ul class="steps">
         <li>日付と曜日</li>
         <li>乗車と降車の時刻</li>
-        <li>乗車地と降車地（<b>区・市と町名まで</b>、または駅名。例：宮前区有馬2 → 宮前区 有馬）</li>
+        <li>乗車地と降車地（<b>区・市と町名と丁目の数字まで</b>、または駅名。例：宮前区有馬2）</li>
         <li>営業km</li>
         <li>この端末で作ったでたらめな番号（送信ID。名前とは結びつきません）</li>
       </ul>
@@ -377,8 +377,8 @@ details.panel:not([open]) { padding-block: 8px; }
     <section class="panel">
       <h2>送らないもの</h2>
       <ul class="steps">
-        <li>丁目の番号、番地</li>
-        <li>地図の辞書にない場所の名前（病院・会社・お店・個人宅の名前など。その欄は空にして送ります）</li>
+        <li>番地・号（例：有馬2-15-3 の「15-3」）</li>
+        <li>地図の辞書にない場所の名前（病院・会社・お店・個人宅の名前など。お客さんが分かりうるため、その欄は空にして送ります）</li>
         <li>運転手の名前、会社名、車両番号、料金、お客さんの情報（このアプリはもともと読み込みません）</li>
       </ul>
     </section>
@@ -387,7 +387,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <p class="sub" id="share-prev-note"></p>
       <table class="ltable" id="share-preview"></table>
     </section>
-    <div class="err"><b>会社のルールを確認してください</b><br>日報は会社の記録でもあります。乗車地・降車地と時刻は、町名までに丸めても、お客さんの行き先が分かりうる情報です。内容を外に出してよいか、会社のルールをご自身で確認してください。</div>
+    <div class="err"><b>会社のルールを確認してください</b><br>日報は会社の記録でもあります。乗車地・降車地（丁目まで）と時刻は、お客さんの家や行き先が分かりうる情報です。内容を外に出してよいか、会社のルールをご自身で確認してください。</div>
     <section class="panel">
       <h2>やめるとき・消したいとき</h2>
       <ul class="steps">
@@ -584,7 +584,7 @@ details.panel:not([open]) { padding-block: 8px; }
       for (const c of GEO.areas[area]) {
         const t = c.towns;
         let town = t[rest] ? rest : Object.keys(t).filter((k) => rest.startsWith(k)).sort((a, b) => b.length - a.length)[0];
-        if (town) { const v = t[town]; const cp = ch && v[2] && v[2][+ch]; r = { key: area + town, area, type: '住所', ll: v ? [v[0], v[1]] : null, pt: cp || [v[0], v[1]] }; break; }
+        if (town) { const v = t[town]; const cp = ch && v[2] && v[2][+ch]; r = { key: area + town, area, type: '住所', ll: v ? [v[0], v[1]] : null, pt: cp || [v[0], v[1]], ch: cp ? String(+ch) : '' }; break; }
       }
       if (!r && !/駅/.test(rest)) r = { key: area + (rest || ''), area, type: '住所', ll: null };
     }
@@ -1337,7 +1337,7 @@ details.panel:not([open]) { padding-block: 8px; }
   // 送り先は config.js。collectUrl が空なら、この機能は画面に出さず、どこにも送らない
   const CFG = Object.assign({ collectUrl: '', operator: '', contact: '', purpose: '' }, window.NAVI_CONFIG || {});
   const SHARE_READY = /^https?:\/\//.test(CFG.collectUrl);
-  const CONSENT_VER = 2; // 同意画面の内容（送るもの・送り先・目的）を変えたら上げる。上げると全員もう一度同意が必要になる
+  const CONSENT_VER = 3; // 同意画面の内容（送るもの・送り先・目的）を変えたら上げる。上げると全員もう一度同意が必要になる
   let share = { on: false };
   try { const o = JSON.parse(store.get('navi-share') || 'null'); if (o && typeof o === 'object') share = { on: o.on === true && o.v === CONSENT_VER, v: o.v, sid: typeof o.sid === 'string' ? o.sid : undefined, at: o.at, last: o.last }; } catch (e) {}
   const saveShare = () => store.set('navi-share', JSON.stringify(share));
@@ -1347,15 +1347,15 @@ details.panel:not([open]) { padding-block: 8px; }
   const recKey = (r) => fnv(`${r.d}|${r.t}|${nz(r.pu)}`);
   const sentSet = new Set((store.get('navi-sent') || '').split(',').filter(Boolean));
   const realRecs = () => { const c = store.get('navi-csv'); if (!c) return []; try { return toRecords(c).recs; } catch (e) { return []; } }; // サンプルは含めない
-  // 町名までに丸める。辞書にある町・駅だけを送り、それ以外（病院名・番地つきの書き方など）は空にする
+  // 丁目までにそろえる。辞書にある町（と、辞書にある丁目の数字）・駅だけを送り、それ以外（病院名・会社名・番地など、自由に書かれた文字）は空にする
   const roundPlace = (raw) => {
     const x = raw && GEO ? resolve(raw) : null;
-    if (!x || !x.ll) return ['', ''];
-    return x.type === '駅' ? ['駅', x.key] : [x.area, x.key.slice(x.area.length).replace(/\d+$/, '')];
+    if (!x || !x.ll) return ['', '', ''];
+    return x.type === '駅' ? ['駅', x.key, ''] : [x.area, x.key.slice(x.area.length), x.ch || ''];
   };
   const toRow = (r) => {
-    const [pa, pt] = roundPlace(r.pu), [da, dt] = roundPlace(r.dp);
-    const o = { d: r.d, wd: wdOf(r.d), h: Math.floor(r.t / 60), m: r.t % 60, pa, pt, da, dt };
+    const [pa, pt, pc] = roundPlace(r.pu), [da, dt, dc] = roundPlace(r.dp);
+    const o = { d: r.d, wd: wdOf(r.d), h: Math.floor(r.t / 60), m: r.t % 60, pa, pt, pc, da, dt, dc };
     if (r.dt != null) { o.dh = Math.floor(r.dt / 60); o.dm = r.dt % 60; }
     if (r.km != null) o.km = r.km;
     return o;
@@ -1405,13 +1405,13 @@ details.panel:not([open]) { padding-block: 8px; }
     $('share-sid').textContent = share.sid ? `この端末の送信ID：${share.sid}` : '送信IDは、同意したときにこの端末で作ります。';
     $('share-off-box').hidden = share.on; $('share-on-box').hidden = !share.on;
     const tb = $('share-preview'); tb.replaceChildren();
-    const hm = (m) => `${Math.floor(m / 60)}:${p2(m % 60)}`, pl = (a, t) => a || t ? `${a} ${t}` : '（送らない）';
+    const hm = (m) => `${Math.floor(m / 60)}:${p2(m % 60)}`, pl = (a, t, c) => a || t ? `${a} ${t}${c || ''}` : '（送らない）';
     const ex = recs.slice(0, 3);
     $('share-prev-note').textContent = !GEO ? '地図の辞書を読み込めていないため、いまは例を出せません（この状態では送りません）。' : ex.length ? 'あなたの記録の最初の3件が、どう送られるかの例です。上の段が端末の中の記録、下の段が送る内容です。' : '記録を読み込むと、実際に送る内容の例がここに出ます。';
     if (GEO) ex.forEach((r) => {
       const o = toRow(r), tr = el('tr'), td = el('td');
       td.append(el('div', 'd', `端末の中：${r.d.replace(/-/g, '/')} ${hm(r.t)} ${r.pu} → ${r.dp || '（空欄）'}${r.km != null ? ` ${r.km}km` : ''}`));
-      td.append(el('div', null, `送る内容：${o.d} ${o.wd} ${o.h}:${p2(o.m)}${o.dh != null ? `〜${o.dh}:${p2(o.dm)}` : ''}／${pl(o.pa, o.pt)} → ${pl(o.da, o.dt)}${o.km != null ? `／${o.km}km` : ''}`));
+      td.append(el('div', null, `送る内容：${o.d} ${o.wd} ${o.h}:${p2(o.m)}${o.dh != null ? `〜${o.dh}:${p2(o.dm)}` : ''}／${pl(o.pa, o.pt, o.pc)} → ${pl(o.da, o.dt, o.dc)}${o.km != null ? `／${o.km}km` : ''}`));
       tr.append(td); tb.append(tr);
     });
   };
@@ -1492,7 +1492,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <li><b>記録：</b>入れた記録の件数、記録の追加・入れ替え・消去、記録の提供。</li>
     </ul>
     <p class="sub"><b>④ 記録の提供</b></p>
-    <p class="sub">このアプリは、記録の提供に同意した人が使えます。はじめて開いたときに同意の画面が出ます。送るのは町名までに丸めた記録だけです。記録の画面から提供をやめることもできますが、そのときはアプリが使えなくなります。</p>
+    <p class="sub">このアプリは、記録の提供に同意した人が使えます。はじめて開いたときに同意の画面が出ます。送るのは丁目までにそろえた記録だけです（番地・病院名などは送りません）。記録の画面から提供をやめることもできますが、そのときはアプリが使えなくなります。</p>
     <p class="sub"><b>⑤ うまくいかないとき</b></p>
     <ul class="steps">
       <li><b>ファイルが灰色で選べない：</b>Googleスプレッドシートのリンクです。②のコピー＆貼り付けで入れます。</li>
