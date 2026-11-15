@@ -276,20 +276,24 @@ details.panel:not([open]) { padding-block: 8px; }
     <div class="err"><b>気をつけること</b><br>日報は会社の記録です。AIに写真を送ってよいか、会社のルールを確認してから使ってください。写真にお客さんの情報が写っている場合は、送る前にその部分を隠してください。</div>
 
     <section class="panel">
-      <h2><span class="stepno">1</span>指示文をコピーする</h2>
+      <h2><span class="stepno">1</span>準備して、指示文をコピーする</h2>
+      <ul class="steps">
+        <li>ChatGPT（チャッピー）か Claude のアプリを入れて、ログインしておく（無料プランで使えます）。</li>
+        <li>下のボタンで指示文をコピーする。</li>
+      </ul>
       <button class="primary" type="button" id="ai-copy">指示文をコピー</button>
       <details class="fold"><summary>指示文の中身を見る</summary><pre class="csv wrap" id="ai-prompt"></pre></details>
     </section>
 
     <section class="panel">
-      <h2><span class="stepno">2</span>AIに写真と指示文を送る</h2>
+      <h2><span class="stepno">2</span>AIに指示文を貼って、写真を送る</h2>
       <ol class="steps">
-        <li>ChatGPT か Claude のアプリを開き、新しいチャットを始める。</li>
-        <li>日報の写真を添付する（1日分。2ページあるときは2枚とも）。</li>
-        <li>コピーした指示文を貼り付けて送る。</li>
+        <li>ChatGPT か Claude のアプリで新しいチャットを始め、コピーした指示文を貼って送る。</li>
+        <li>「準備できました」と返ってきたら、日報の写真を送る（2ページあるときは2枚とも。何日分でも）。</li>
         <li>返ってきた表の右上の「コピー」を押す（出ないときは、返事の文字を長押しして全部コピー）。</li>
         <li>このアプリに戻る。</li>
       </ol>
+      <p class="sub">次の日からは、同じチャットに写真を送るだけで表になります。ChatGPT・Claude の「プロジェクト」の指示に入れておけば、新しいチャットでも貼り直しはいりません。</p>
       <div class="row2" style="justify-content:flex-start">
         <a class="ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPTを開く</a>
         <a class="ghost" href="https://claude.ai/new" target="_blank" rel="noopener">Claudeを開く</a>
@@ -347,6 +351,7 @@ details.panel:not([open]) { padding-block: 8px; }
   <!-- 記録の提供（同意した人だけ。町名までに丸めて運営者に送る） -->
   <section class="welcome" id="s-share" aria-label="記録の提供について" hidden>
     <div class="row2"><h2>記録の提供について</h2><button class="ghost" type="button" id="share-back">もどる</button></div>
+    <div class="note" id="share-first" hidden><b>はじめに1つだけ選んでください。</b>流しナビでは、運転手さんの記録を持ち寄って、全体の傾向を調べています。協力するかどうかを、下を読んで選んでください。あとから記録の画面でいつでも変えられます。</div>
     <p class="sub">同意した運転手さんの記録を集めて、全体の傾向を調べる取り組みです。<b>送らなくても、このアプリはこれまでどおり全部使えます。</b>ほかの運転手さんの記録が、このアプリで見えることはありません。</p>
     <div class="note" id="share-state"></div>
 
@@ -386,7 +391,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <ul class="steps">
         <li>記録の画面の「提供をやめる」を押すと、それ以降は何も送りません。</li>
         <li>すでに送った記録は、このアプリからは消せません。消してほしいときは、下の送信IDを運営者に伝えてください。<span id="share-contact"></span></li>
-        <li>同意すると、いま端末にある記録と、これから読み込む記録を自動で送ります。</li>
+        <li>同意すると、いま端末にある記録と、これから読み込む記録（ファイル・AIで読み取った表のどちらも）を自動で送ります。</li>
       </ul>
       <p class="sub" id="share-sid"></p>
     </section>
@@ -1131,9 +1136,7 @@ details.panel:not([open]) { padding-block: 8px; }
     if (!ok) msgs.push('この端末に保存できませんでした（容量が足りないか、保存が止められています）。開いている間だけ使えます。');
     if (bad) msgs.push(`${bad}行は日付・時刻・乗車地が読み取れなかったので飛ばしました。`);
     if (msgs.length) alertBox(msgs.join(' '));
-    // 記録の提供：はじめて記録を読み込んだときに1回だけ、同意の画面を出す（選ぶのは本人。「送らない」でもアプリは全部使える）
-    if (SHARE_READY && !share.on && !store.get('navi-share-asked') && !msgs.length) { store.set('navi-share-asked', '1'); setTimeout(openShare, 0); }
-    else setTimeout(sendPending, 0); // 提供がオンのときだけ送る
+    setTimeout(sendPending, 0); // 提供がオンのときだけ送る
   };
   const alertBox = (msg) => { const b = $('samplebar'); b.hidden = false; b.replaceChildren(el('span', null, msg)); const x = el('button', 'ghost', '閉じる'); x.type = 'button'; x.onclick = () => { b.hidden = true; }; b.append(x); };
   const readFile = (file, mode) => {
@@ -1159,9 +1162,13 @@ details.panel:not([open]) { padding-block: 8px; }
 
   // ===== AIで読み取る =====
   // 指示文は docs/ocr_prompt.md・docs/chatgpt_guide.md と同じ内容。直すときは両方を直す
-  const OCR_PROMPT = `この写真はタクシーの乗務員日報です。乗車の記録を、次の形のCSVにしてください。説明文は書かず、CSVだけを返してください。
+  const OCR_PROMPT = `これから、タクシーの乗務員日報の写真を送ります。この会話のあいだ、写真が届くたびに、乗車の記録を「流しナビ」に貼れるCSVにしてください。
 
+返し方:
+- CSVだけを、1つのコードブロックに入れて返す。1行目はいつも次の見出しにする。
 日付,乗車,降車,乗車地,降車地,営業km
+- コードブロックの外には「全部で○件・空欄にした所」を1行だけ書く。あいさつや説明は書かない。
+- 何日分の写真が届いても、1つのCSVにまとめる。
 
 決まり:
 - 日付は日報上部の「出庫日時」の年月日を、2025/02/21 の形で全行に入れる。
@@ -1173,7 +1180,9 @@ details.panel:not([open]) { padding-block: 8px; }
 - 料金・人数・支払い・備考・手書きのメモは入れない。
 - 用紙が傾いていたら、No.の列と時刻・地名・kmの行の対応を、件数を数えて合わせる。
 - 読めない字は推測で埋めず、その欄を空にする。
-- 写真が2枚（1/2・2/2ページ）あれば、続けて1つの表にする。`;
+- 写真が2枚（1/2・2/2ページ）あれば、続けて1つの表にする。
+
+この文を読んだら「準備できました。日報の写真を送ってください。」とだけ返してください。`;
   const SHEET_PROMPT = `この写真はタクシーの乗務員日報です。乗車の記録を表にしてください。
 説明やあいさつは書かず、表だけを返してください。
 
@@ -1403,7 +1412,8 @@ details.panel:not([open]) { padding-block: 8px; }
       tr.append(td); tb.append(tr);
     });
   };
-  const openShare = () => {
+  const openShare = (first) => {
+    $('share-first').hidden = first !== true;
     ['now', 'after', 'map', 'log'].forEach((k) => { $('s-' + k).hidden = true; });
     $('s-welcome').hidden = true; $('s-ai').hidden = true; $('tabs').hidden = true; $('samplebar').hidden = true; document.body.classList.remove('mapmode');
     $('share-agree').checked = false; $('share-yes').disabled = true;
@@ -1411,7 +1421,7 @@ details.panel:not([open]) { padding-block: 8px; }
   };
   const closeShare = () => { $('s-share').hidden = true; if (A) showApp(); else showWelcome(); };
   const stopShare = () => { share.on = false; saveShare(); shareMsg = ''; renderShare(); alertBox('提供をやめました。これ以降は何も送りません。'); };
-  $('share-open').addEventListener('click', openShare);
+  $('share-open').addEventListener('click', () => openShare());
   $('share-back').addEventListener('click', closeShare);
   $('share-no').addEventListener('click', closeShare);
   $('share-agree').addEventListener('change', (e) => { $('share-yes').disabled = !e.target.checked; });
@@ -1466,7 +1476,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <li><b>Excel・CSV のファイル：</b>「記録のファイルを選ぶ」→ 左上の「ブラウズ」→ iCloud Drive や Google ドライブから選ぶ。</li>
       <li><b>Googleスプレッドシート：</b>緑のアイコン（.gsheet）は中身のないリンクなので、灰色で選べません。スプレッドシートのアプリで表の左上の角（Aの左・1の上）をタップ →「コピー」→ このアプリの「日報の写真から読み取る」→「コピーしたものを貼り付ける」→「表にして確かめる」→「取り込む」。ファイルにしたいときは「⋯」→「共有とエクスポート」→「コピーを送信」→「Microsoft Excel」→「"ファイル"に保存」。</li>
       <li><b>Numbers：</b>「⋯」→「書き出し」→「Excel」→「"ファイル"に保存」して、そのファイルを選ぶ。</li>
-      <li><b>紙の日報：</b>「日報の写真から読み取る」→「指示文をコピー」→ 自分の ChatGPT か Claude のアプリに、日報の写真と指示文を送る → 返ってきた表をコピー →「コピーしたものを貼り付ける」→「表にして確かめる」→ 写真と見比べて「取り込む」。</li>
+      <li><b>紙の日報：</b>「日報の写真から読み取る」→「指示文をコピー」→ 自分の ChatGPT か Claude のアプリに指示文を貼って送り、「準備できました」と返ってきたら日報の写真を送る → 返ってきた表をコピー →「コピーしたものを貼り付ける」→「表にして確かめる」→ 写真と見比べて「取り込む」。</li>
     </ul>
     <p class="sub">日報が増えたら、同じやり方で足します。前に入れた記録と重なった行は、自動で1つにまとめます。</p>
     <p class="sub"><b>③ 画面の見方</b></p>
@@ -1477,7 +1487,7 @@ details.panel:not([open]) { padding-block: 8px; }
       <li><b>記録：</b>入れた記録の件数、記録の追加・入れ替え・消去、記録の提供。</li>
     </ul>
     <p class="sub"><b>④ 記録の提供</b></p>
-    <p class="sub">はじめて記録を入れたときに1回だけ、記録を提供するかを聞きます。送らなくても、アプリは全部使えます。送るのは町名までに丸めた記録だけで、記録の画面からいつでもやめられます。</p>
+    <p class="sub">はじめて開いたときに1回だけ、記録を提供するかを聞きます。送らなくても、アプリは全部使えます。送るのは町名までに丸めた記録だけで、記録の画面からいつでもやめられます。</p>
     <p class="sub"><b>⑤ うまくいかないとき</b></p>
     <ul class="steps">
       <li><b>ファイルが灰色で選べない：</b>Googleスプレッドシートのリンクです。②のコピー＆貼り付けで入れます。</li>
@@ -1521,6 +1531,8 @@ details.panel:not([open]) { padding-block: 8px; }
     if (saved) { try { analyse(toRecords(saved).recs); showApp(); shown = true; } catch (e) {} }
     if (!shown) showWelcome();
     if (wantAI) openAI();
+    // 記録の提供：はじめて開いたときに1回だけ、同意の画面を出す（選ぶのは本人。「送らない」でもアプリは全部使える）
+    else if (SHARE_READY && !share.on && !store.get('navi-share-asked')) { store.set('navi-share-asked', '1'); openShare(true); }
     sendPending();
   }).catch(() => { showWelcome(); const e = $('load-err'); e.textContent = '地図・住所の辞書を読み込めませんでした。通信できる場所で開き直してください。'; e.hidden = false; });
 })();
