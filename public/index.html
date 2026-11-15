@@ -1129,7 +1129,9 @@ details.panel:not([open]) { padding-block: 8px; }
     if (!ok) msgs.push('この端末に保存できませんでした（容量が足りないか、保存が止められています）。開いている間だけ使えます。');
     if (bad) msgs.push(`${bad}行は日付・時刻・乗車地が読み取れなかったので飛ばしました。`);
     if (msgs.length) alertBox(msgs.join(' '));
-    setTimeout(sendPending, 0); // 提供がオンのときだけ送る
+    // 記録の提供：はじめて記録を読み込んだときに1回だけ、同意の画面を出す（選ぶのは本人。「送らない」でもアプリは全部使える）
+    if (SHARE_READY && !share.on && !store.get('navi-share-asked') && !msgs.length) { store.set('navi-share-asked', '1'); setTimeout(openShare, 0); }
+    else setTimeout(sendPending, 0); // 提供がオンのときだけ送る
   };
   const alertBox = (msg) => { const b = $('samplebar'); b.hidden = false; b.replaceChildren(el('span', null, msg)); const x = el('button', 'ghost', '閉じる'); x.type = 'button'; x.onclick = () => { b.hidden = true; }; b.append(x); };
   const readFile = (file, mode) => {
